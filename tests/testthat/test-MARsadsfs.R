@@ -85,7 +85,7 @@ test_that(".get_AC works correctly", {
 
     # Test with zero counts
     gm_zero <- create_test_genomaps()
-    gm_zero$geno$genotype[,1] <- 0
+    gm_zero$geno$genotype[1,] <- 0
     expect_warning(.get_AC(gm_zero$geno))
 })
 
@@ -107,7 +107,7 @@ test_that("ll_sfs works correctly", {
 
     # Test warning for zero model values
     model_zero <- model_sfs
-    model_zero[1] <- 0
+    model_zero[4] <- 0
     expect_warning(ll_sfs(model_zero, data_sfs))
 
     # Test error for mismatched lengths

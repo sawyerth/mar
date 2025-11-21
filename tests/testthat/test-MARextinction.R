@@ -127,7 +127,7 @@ test_that("MARextinction maintains data integrity", {
     expect_type(result$extl, "character")
 
     # Check replicate ID format
-    expect_type(result$repid, "double")
+    expect_type(result$repid, "integer")
     expect_true(all(result$repid %in% 1:2))
 })
 

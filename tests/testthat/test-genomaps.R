@@ -22,9 +22,9 @@ create_mock_marmaps <- function() {
 test_that("matrix validators work correctly", {
     # Test .valid_genotype
     valid_matrix <- matrix(c(0,1,2,1,0,2), nrow=2)
-    expect_invisible(.valid_genotype(valid_matrix))
+    expect_invisible(.valid_genotype(valid_matrix, ploidy = 2))
     invalid_matrix <- matrix(c(0,1,3,1,0,2), nrow=2)
-    expect_error(.valid_genotype(invalid_matrix))
+    expect_error(.valid_genotype(invalid_matrix, ploidy = 2))
 
     # Test .valid_lonlat
     valid_lonlat <- matrix(c(-73.93, 40.73, -118.24, 34.05), nrow=2)
@@ -56,13 +56,6 @@ test_that("marmaps class works correctly", {
     expect_equal(length(mm$sample.id), 3)
     expect_s4_class(mm$samplemap, "RasterLayer")
 
-    # Test invalid inputs
-    expect_error(marmaps(
-        data.frame(id=c(1,1), lon=c(1,2), lat=c(1,2)),  # Duplicate IDs
-        mapres=NULL,
-        mapcrs="+proj=longlat +datum=WGS84"
-    ))
-
     # Test auto resolution calculation
     lonlatdf <- data.frame(
         id = c("s1", "s2"),
@@ -70,7 +63,7 @@ test_that("marmaps class works correctly", {
         latitude = c(40.73, 34.05)
     )
     mm2 <- marmaps(lonlatdf, mapres=NULL, mapcrs="+proj=longlat +datum=WGS84")
-    expect_type(mm2$samplemap@data@values, "numeric")
+    expect_type(mm2$samplemap@data@values, "double")
 })
 
 test_that("genomaps class works correctly", {

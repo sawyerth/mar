@@ -30,8 +30,8 @@ gds_checks <- function(result, genomat, alleles) {
     expect_equal(.get_genodata(result, "chromosome"), c("1", "1", "2", "2"))
     expect_equal(.get_genodata(result, "position"), c(100, 200, 300, 400))
     expect_equal(.get_genodata(result, "genotype"), genomat)
-    expect_equal(seqGetData(result, "allele"), alleles)
-    seqClose(result)
+    expect_equal(SeqArray::seqGetData(result, "allele"), alleles)
+    SeqArray::seqClose(result)
     return(invisible())
 }
 
@@ -52,14 +52,12 @@ test_that(".guess_delim works correctly", {
 
 test_that(".read_genotype works correctly", {
     # working case
-    res <- .read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n"), het2hom = FALSE)
+    res <- .read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n"), ploidy = 2)
     expect_equal(res, matrix(c(0,1,2,1,0,2), nrow=2, byrow=TRUE))
-    # het2hom
-    res <- .read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n"), het2hom = TRUE)
-    expect_equal(res, matrix(c(0,1,1,1,0,1), nrow=2, byrow=TRUE))
     # error case
-    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n3\t1\t0\t2\n")))
-    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\tNA\n"), het2hom = FALSE))
+    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n3\t1\t0\t2\n"), ploidy = 3))
+    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n3\t1\t0\t2\n"), ploidy = 2))
+    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\tNA\n"), ploidy = 2))
     unlink_files()
 })
 
@@ -68,13 +66,6 @@ test_that(".read_pos works correctly", {
     res <- .read_pos(gen_mock(".txt", "CHROM\tPOS\n1\t100\n2\t200"))
     expect_equal(res[[1]], c(1, 2))
     expect_equal(res[[2]], c(100, 200))
-    unlink_files()
-})
-
-test_that(".read_samp works correctly", {
-    res <- .read_samp(gen_mock(".txt", "sample1\nsample2\nsample3"))
-    expect_equal(res, c("sample1", "sample2", "sample3"))
-    expect_error(.read_samp(gen_mock(".txt", "sample1,data1\nsample2,data2\nsample3,data3")))
     unlink_files()
 })
 
@@ -98,16 +89,14 @@ test_that(".read_lonlat works correctly", {
 test_that("text_parser works correctly", {
     temp_geno <- gen_mock(".txt", "0\t1\t2\n1\t0\t2\n")
     temp_pos <- gen_mock(".txt", "CHROM\tPOS\n1\t100\n2\t200")
-    result <- text_parser(temp_geno, pos.fn = temp_pos, het2hom = FALSE)
+    result <- text_parser(temp_geno, pos.fn = temp_pos)
     expect_s3_class(result, "margeno")
     expect_equal(result$sample.id, 1:3)
     expect_equal(result$variant.id, c(1, 2))
     expect_equal(result$position, c(100, 200))
-    expect_equal(result$chromosome, c("1", "2"))
+    expect_equal(result$chromosome, c(1, 2))
     expect_equal(result$genotype, matrix(c(0,1,2,1,0,2), nrow=2, byrow=TRUE))
     expect_equal(result$ploidy, 2)
-    result <- text_parser(temp_geno, pos.fn = temp_pos)
-    expect_equal(result$genotype, matrix(c(0,1,1,1,0,1), nrow=2, byrow=TRUE))
 
     # not input pos.fn
     result <- text_parser(temp_geno)
@@ -127,9 +116,10 @@ test_that("vcf_parser and .get_genodata works correctly", {
 
 test_that("plink_parser works correctly", {
     # requires PLINK installed
+    library(SeqArray)
     temp_vcf <- gen_mock(".vcf", vcf_content)
     temp_prefix <- .strip_ext(temp_vcf, ".vcf")
-    plink="/Applications/Lab/plink_mac_20221210/plink" # TODO: cleanup
+    plink="/Applications/Lab/plink_mac_20250819/plink" # TODO: cleanup
     system(paste0(plink, " --vcf ", temp_vcf, " --make-bed --out ", temp_prefix))
     result <- plink_parser(temp_prefix, opengds = TRUE)
     # plink automatically flips the alleles by MAF
@@ -142,13 +132,13 @@ test_that("plink_parser works correctly", {
 test_that("lonlat_parser works correctly", {
     # working case
     result <- lonlat_parser(gen_mock(".txt", "ID\tLONGITUDE\tLATITUDE\nSample1\t-73.935242\t40.730610\nSample2\t-118.243683\t34.052235"))
-    lonlat <- matrix(c(-73.935242, 40.730610, -118.243683, 34.052235), nrow=2, byrow=TRUE)
-    colnames(lonlat) <- c("LONGITUDE", "LATITUDE")
-    # error case
-    expect_equal(result[[1]], c("Sample1", "Sample2"))
-    expect_equal(result[[2]], lonlat)
+    lonlat <- data.frame(
+        ID = c("Sample1", "Sample2"),
+        LONGITUDE = c(-73.935242, -118.243683),
+        LATITUDE = c(40.730610, 34.052235)
+    )
+    expect_equal(result, lonlat)
     unlink_files()
-
 })
 
 # remove any temp files

@@ -2,7 +2,7 @@ Package: mar
 Type: Package
 Title: Fitting Mutations-Area Relationships using population genomic samples of a species
 Version: 0.2.0
-Date: 2025-08-06
+Date: 2025-11-21
 Author: Moi Exposito-Alonso, Meixi Lin
 Maintainer: Meixi Lin <22927483+meixilin@users.noreply.github.com>
 Description: Fitting Mutations-Area Relationships using population genomic samples of a species.
@@ -21,3 +21,6 @@ Encoding: UTF-8
 RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 LazyData: true
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
