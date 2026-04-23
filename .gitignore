@@ -25,3 +25,4 @@ marlogo*
 
 data-raw/*
 !data-raw/gm1001g*
+inst/doc
