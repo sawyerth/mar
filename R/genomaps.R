@@ -17,11 +17,11 @@
 # create marmaps object
 # resolution determination inspired from: https://www.sciencedirect.com/science/article/pii/S0098300405002657 (eq. 12)
 .lonlat_res <- function(lonlat, lonlatr) {
-    aa = apply(lonlatr, 2, diff)
-    area = aa[1]*aa[2]
-    mapres = 0.5*sqrt(area/nrow(lonlat))
+    aa <- apply(lonlatr, 2, diff)
+    area <- aa[1] * aa[2]
+    mapres <- 0.5 * sqrt(area / nrow(lonlat))
     # round to first non-zero digits
-    out = as.numeric(sprintf('%.e', mapres))
+    out <- as.numeric(sprintf("%.e", mapres))
     return(out)
 }
 
@@ -29,15 +29,18 @@
 .lonlat_raster <- function(lonlat, lonlatr, mapres, mapcrs) {
     # raster ext respects only xmin and ymax when resolution is specified
     # calculate the extent of the raster
-    xmin = min(lonlatr[,1])-0.5*mapres
-    ymax = max(lonlatr[,2])+0.5*mapres
-    xmax = xmin + (ceiling(diff(lonlatr[,1])/mapres)+1)*mapres
-    ymin = ymax - (ceiling(diff(lonlatr[,2])/mapres)+1)*mapres
-    baser <- raster::raster(xmn = xmin, xmx = xmax,
-                            ymn = ymin, ymx = ymax,
-                            res = mapres,
-                            crs = mapcrs)
-    rr <- raster::rasterize(lonlat, baser, fun = "count")
+    xmin <- min(lonlatr[, 1]) - 0.5 * mapres
+    ymax <- max(lonlatr[, 2]) + 0.5 * mapres
+    xmax <- xmin + (ceiling(diff(lonlatr[, 1]) / mapres) + 1) * mapres
+    ymin <- ymax - (ceiling(diff(lonlatr[, 2]) / mapres) + 1) * mapres
+    baser <- terra::rast(
+        xmin = xmin, xmax = xmax,
+        ymin = ymin, ymax = ymax,
+        resolution = mapres,
+        crs = mapcrs
+    )
+    pts <- terra::vect(lonlat, type = "points", crs = mapcrs)
+    rr <- terra::rasterize(pts, baser, fun = length)
     return(rr)
 }
 
@@ -56,8 +59,10 @@
 # genomaps class
 # combine the margeno and marmaps objects
 .new_genomaps <- function(geno, maps) {
-    obj <- list(geno = geno,
-                maps = maps)
+    obj <- list(
+        geno = geno,
+        maps = maps
+    )
     class(obj) <- c(class(obj), "genomaps")
     attr(obj, "genolen") <- .get_genodata(geno, "num.variant")
     return(obj)
@@ -80,8 +85,9 @@
 #' variant_id <- 1:4
 #' position <- as.integer(c(100, 200, 300, 400)) # position has to be integer
 #' chromosome <- c("chr1", "chr1", "chr1", "chr2")
-#' position <- NULL; chromosome <- NULL # if no position or chromosome
-#' genotype <- matrix(c(1,2,0,0,1,1,2,0,1,2,2,1), nrow = 4, ncol = 3)
+#' position <- NULL
+#' chromosome <- NULL # if no position or chromosome
+#' genotype <- matrix(c(1, 2, 0, 0, 1, 1, 2, 0, 1, 2, 2, 1), nrow = 4, ncol = 3)
 #' ploidy <- 2
 #' margeno(sample_id, variant_id, position, chromosome, genotype, ploidy)
 margeno <- function(sample.id, variant.id, position, chromosome, genotype, ploidy) {
@@ -139,7 +145,7 @@ marmaps <- function(lonlatdf, mapres, mapcrs) {
     # unpack lonlatdf
     stopifnot(class(lonlatdf) == "data.frame" & ncol(lonlatdf) == 3)
     sample.id <- lonlatdf[[1]]
-    lonlat <- as.matrix(lonlatdf[,2:3])
+    lonlat <- as.matrix(lonlatdf[, 2:3])
 
     # Validate inputs
     stopifnot(class(sample.id) %in% c("character", "integer", "numeric"))
@@ -159,7 +165,7 @@ marmaps <- function(lonlatdf, mapres, mapcrs) {
     samplemap <- .lonlat_raster(lonlat, lonlatr, mapres, mapcrs)
 
     # Get cell IDs
-    cellid <- raster::cellFromXY(samplemap, lonlat)
+    cellid <- terra::cellFromXY(samplemap, lonlat)
     stopifnot(!any(is.na(cellid))) # stop if lonlat outside of raster
 
     # Create object using constructor
@@ -171,8 +177,8 @@ marmaps <- function(lonlatdf, mapres, mapcrs) {
     )
 
     message("number of samples: ", length(sample.id))
-    message("longitude range: [", lonlatr[1,1], ", ", lonlatr[2,1], "]")
-    message("latitude range: [", lonlatr[1,2], ", ", lonlatr[2,2], "]")
+    message("longitude range: [", lonlatr[1, 1], ", ", lonlatr[2, 1], "]")
+    message("latitude range: [", lonlatr[1, 2], ", ", lonlatr[2, 2], "]")
     message("map resolution: ", mapres)
 
     return(output)
@@ -195,8 +201,9 @@ marmaps <- function(lonlatdf, mapres, mapcrs) {
 #' variant_id <- 1:4
 #' position <- as.integer(c(100, 200, 300, 400)) # position has to be integer
 #' chromosome <- c("chr1", "chr1", "chr1", "chr2")
-#' position <- NULL; chromosome <- NULL # if no position or chromosome
-#' genotype <- matrix(c(1,2,0,0,1,1,2,0,1,2,2,1), nrow = 4, ncol = 3)
+#' position <- NULL
+#' chromosome <- NULL # if no position or chromosome
+#' genotype <- matrix(c(1, 2, 0, 0, 1, 1, 2, 0, 1, 2, 2, 1), nrow = 4, ncol = 3)
 #' ploidy <- 2
 #' geno <- margeno(sample_id, variant_id, position, chromosome, genotype, ploidy)
 #'
@@ -209,7 +216,6 @@ marmaps <- function(lonlatdf, mapres, mapcrs) {
 #' maps <- marmaps(lonlatdf, mapres = NULL, mapcrs = "EPSG:4326")
 #'
 #' genomaps(geno, maps)
-
 genomaps <- function(geno, maps) {
     # validate inputs
     stopifnot("margeno" %in% class(geno))
