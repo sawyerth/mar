@@ -37,6 +37,6 @@ Creates a plot of genetic diversity against area, optionally with fitted power l
 }
 \examples{
 \dontrun{
-    plot(marsamp_object, c=0.5, z=0.25)
+plot(marsamp_object, c = 0.5, z = 0.25)
 }
 }

@@ -25,6 +25,6 @@ Creates a plot showing relationship between area loss and genetic diversity loss
 }
 \examples{
 \dontrun{
-    plot(marextinct_object, z=0.25)
+plot(marextinct_object, z = 0.25)
 }
 }

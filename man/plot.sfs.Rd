@@ -18,6 +18,6 @@ Invisibly returns NULL
 Creates a barplot of the site frequency spectrum
 }
 \examples{
-sfs_object <- sfs(AC=c(1,1,0,2,0,1,1,0,0,2,30), N=50, ploidy=2)
+sfs_object <- sfs(AC = c(1, 1, 0, 2, 0, 1, 1, 0, 0, 2, 30), N = 50, ploidy = 2)
 plot(sfs_object)
 }
