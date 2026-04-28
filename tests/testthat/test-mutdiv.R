@@ -4,8 +4,8 @@ create_test_genomaps <- function() {
     variant.id <- as.integer(1:3)
     position <- as.integer(c(100, 200, 300))
     chromosome <- c("1", "1", "2")
-    genotype <- matrix(c(0,1,2,1,0,2,2,1,0,1,2,0), nrow=3, byrow=TRUE)
-    mg <- margeno(sample.id, variant.id, position, chromosome, genotype, ploidy=2)
+    genotype <- matrix(c(0, 1, 2, 1, 0, 2, 2, 1, 0, 1, 2, 0), nrow = 3, byrow = TRUE)
+    mg <- margeno(sample.id, variant.id, position, chromosome, genotype, ploidy = 2)
 
     # Create spatial data
     lonlatdf <- data.frame(
@@ -13,7 +13,7 @@ create_test_genomaps <- function() {
         longitude = c(-73.935, -73.934, -73.933, -73.932),
         latitude = c(40.730, 40.731, 40.732, 40.733)
     )
-    mm <- marmaps(lonlatdf, mapres=0.001, mapcrs="+proj=longlat +datum=WGS84")
+    mm <- marmaps(lonlatdf, mapres = 0.001, mapcrs = "+proj=longlat +datum=WGS84")
 
     # Create genomaps object
     gm <- genomaps(mg, mm)
@@ -25,7 +25,7 @@ test_that("mutdiv.gridded basic functionality works", {
     gmarea <- .areaofraster(gm$maps$samplemap)
 
     # Test with a simple 50x50 bounding box
-    result <- mutdiv.gridded(gm, gmarea, bbox=c(1,50,1,50))
+    result <- mutdiv.gridded(gm, gmarea, bbox = c(1, 50, 1, 50))
 
     # Check structure
     expect_type(result, "list")
@@ -41,12 +41,12 @@ test_that("mutdiv.gridded basic functionality works", {
     expect_true(is.numeric(result$Asq))
 
     # Test with revbbox
-    result_rev <- mutdiv.gridded(gm, gmarea, bbox=c(1,2,1,2), revbbox=TRUE)
+    result_rev <- mutdiv.gridded(gm, gmarea, bbox = c(1, 2, 1, 2), revbbox = TRUE)
     expect_false(identical(result, result_rev))
 
     # Test invalid inputs
-    expect_error(mutdiv.gridded(gm, gmarea, bbox=c(1,2,3)))
-    expect_error(mutdiv.gridded(gm, gmarea, bbox=c("a","b","c","d")))
+    expect_error(mutdiv.gridded(gm, gmarea, bbox = c(1, 2, 3)))
+    expect_error(mutdiv.gridded(gm, gmarea, bbox = c("a", "b", "c", "d")))
 })
 
 test_that("mutdiv.cells basic functionality works", {
@@ -93,9 +93,122 @@ test_that(".calc_theta produces valid results", {
     expect_true(result_all$thetapi >= 0)
 
     # Test with subset of samples
-    result_subset <- .calc_theta(gm, sampleid=1:2)
+    result_subset <- .calc_theta(gm, sampleid = 1:2)
     expect_equal(result_subset$N, 2)
     expect_true(result_subset$M <= result_all$M)
+})
+
+test_that(".calc_theta is unbiased with missing data (pixy correction)", {
+    gm <- create_test_genomaps()
+    attr(gm, "genolen") <- 1000
+
+    # baseline (no missing data)
+    res_full <- .calc_theta(gm)
+
+    # introduce missing data (MCAR)
+    gm_na <- gm
+    geno <- gm_na$geno$genotype
+
+    set.seed(42)
+    missing_mask <- matrix(runif(length(geno)) < 0.3, nrow = nrow(geno))
+    geno[missing_mask] <- NA
+
+    gm_na$geno$genotype <- geno
+
+    res_na <- .calc_theta(gm_na)
+
+    # ----------------------------
+    # core pixy expectations
+    # ----------------------------
+
+    # theta estimates should be approximately equal (unbiased)
+    expect_true(abs(res_na$thetapi - res_full$thetapi) < 0.1)
+    expect_true(abs(res_na$thetaw - res_full$thetaw) < 0.1)
+
+    # number of segregating sites should not inflate
+    expect_true(res_na$M <= res_full$M)
+
+    # N should be unchanged (sample count)
+    expect_equal(res_na$N, res_full$N)
+})
+
+test_that(".calc_theta correctly handles fully missing sites", {
+    gm <- create_test_genomaps()
+    attr(gm, "genolen") <- 1000
+
+    gm_na <- gm
+    geno <- gm_na$geno$genotype
+
+    # make entire site missing (row 1)
+    geno[1, ] <- NA
+    gm_na$geno$genotype <- geno
+
+    res <- .calc_theta(gm_na)
+
+    # should not crash
+    expect_true(is.numeric(res$thetapi))
+    expect_true(is.numeric(res$thetaw))
+
+    # segregating sites must be <= total sites - 1
+    expect_true(res$M <= (nrow(geno) - 1))
+})
+
+test_that(".calc_theta matches manual pairwise calculation with missing data", {
+    gm <- create_test_genomaps()
+    attr(gm, "genolen") <- 1000
+
+    geno <- gm$geno$genotype
+
+    # introduce a small amount of missingness
+    geno[1, 1] <- NA
+    gm$geno$genotype <- geno
+
+    res <- .calc_theta(gm)
+
+    # manual π calculation (pairwise, skipping NA)
+    pairwise_pi_global <- function(mat, ploidy = 2) {
+        n_sites <- nrow(mat)
+
+        total_diffs <- 0
+        total_comps <- 0
+
+        for (i in 1:n_sites) {
+            g <- mat[i, ]
+            g <- g[!is.na(g)]
+
+            if (length(g) > 1) {
+                # expand genotypes to alleles
+                alleles <- unlist(lapply(g, function(x) {
+                    if (x == 0) {
+                        return(c(0, 0))
+                    }
+                    if (x == 1) {
+                        return(c(0, 1))
+                    }
+                    if (x == 2) {
+                        return(c(1, 1))
+                    }
+                }))
+
+                for (a in 1:(length(alleles) - 1)) {
+                    for (b in (a + 1):length(alleles)) {
+                        total_diffs <- total_diffs + abs(alleles[a] - alleles[b])
+                        total_comps <- total_comps + 1
+                    }
+                }
+            }
+        }
+
+        if (total_comps == 0) {
+            return(0)
+        }
+
+        total_diffs / total_comps
+    }
+
+    pi_manual <- pairwise_pi_global(geno)
+
+    expect_equal(res$thetapi, pi_manual, tolerance = 1e-6)
 })
 
 test_that(".mutdiv.cellids handles various inputs correctly", {
