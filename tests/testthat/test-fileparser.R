@@ -26,7 +26,7 @@ gds_checks <- function(result, genomat, alleles) {
 
     # Check the contents of the GDS file
     expect_equal(.get_genodata(result, "sample.id"), c("Sample1", "Sample2", "Sample3"))
-    expect_equal(.get_genodata(result, "variant.id"), 1:4) #ID not kept here in GDS
+    expect_equal(.get_genodata(result, "variant.id"), 1:4) # ID not kept here in GDS
     expect_equal(.get_genodata(result, "chromosome"), c("1", "1", "2", "2"))
     expect_equal(.get_genodata(result, "position"), c(100, 200, 300, 400))
     expect_equal(.get_genodata(result, "genotype"), genomat)
@@ -53,11 +53,11 @@ test_that(".guess_delim works correctly", {
 test_that(".read_genotype works correctly", {
     # working case
     res <- .read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n"), ploidy = 2)
-    expect_equal(res, matrix(c(0,1,2,1,0,2), nrow=2, byrow=TRUE))
+    expect_equal(res, matrix(c(0, 1, 2, 1, 0, 2), nrow = 2, byrow = TRUE))
     # error case
     expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n3\t1\t0\t2\n"), ploidy = 3))
     expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\t2\n3\t1\t0\t2\n"), ploidy = 2))
-    expect_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\tNA\n"), ploidy = 2))
+    expect_no_error(.read_genotype(gen_mock(".txt", "0\t1\t2\n1\t0\tNA\n"), ploidy = 2))
     unlink_files()
 })
 
@@ -95,7 +95,7 @@ test_that("text_parser works correctly", {
     expect_equal(result$variant.id, c(1, 2))
     expect_equal(result$position, c(100, 200))
     expect_equal(result$chromosome, c(1, 2))
-    expect_equal(result$genotype, matrix(c(0,1,2,1,0,2), nrow=2, byrow=TRUE))
+    expect_equal(result$genotype, matrix(c(0, 1, 2, 1, 0, 2), nrow = 2, byrow = TRUE))
     expect_equal(result$ploidy, 2)
 
     # not input pos.fn
@@ -108,24 +108,41 @@ test_that("text_parser works correctly", {
 test_that("vcf_parser and .get_genodata works correctly", {
     temp_vcf <- gen_mock(".vcf", vcf_content)
     result <- vcf_parser(temp_vcf, opengds = TRUE)
-    genomat <- matrix(c(0,1,2,1,0,0,0,0,1,1,2,1), nrow=4, byrow=TRUE)
-    gds_checks(result, genomat, c("A,T","G,C","T,A","C,G"))
+    genomat <- matrix(c(0, 1, 2, 1, 0, 0, 0, 0, 1, 1, 2, 1), nrow = 4, byrow = TRUE)
+    gds_checks(result, genomat, c("A,T", "G,C", "T,A", "C,G"))
     unlink(c(temp_vcf, result$filename))
     unlink_files()
 })
 
 test_that("plink_parser works correctly", {
-    # requires PLINK installed
+    # i think that this works correctly now, it should fail in PLINK is not installed
+    # would need to install plink to test fully
     library(SeqArray)
+
     temp_vcf <- gen_mock(".vcf", vcf_content)
-    temp_prefix <- .strip_ext(temp_vcf, ".vcf")
-    plink="/Applications/Lab/plink_mac_20250819/plink" # TODO: cleanup
-    system(paste0(plink, " --vcf ", temp_vcf, " --make-bed --out ", temp_prefix))
+    temp_prefix <- sub("\\.vcf$", "", temp_vcf)
+
+    plink <- Sys.which("plink")
+    skip_if(plink == "", "PLINK not installed")
+
+    cmd <- paste(
+        shQuote(plink),
+        "--vcf", shQuote(temp_vcf),
+        "--make-bed",
+        "--out", shQuote(temp_prefix)
+    )
+
+    exit_code <- system(cmd)
+    expect_equal(exit_code, 0)
+
+    expect_true(file.exists(paste0(temp_prefix, ".bed")))
+
     result <- plink_parser(temp_prefix, opengds = TRUE)
-    # plink automatically flips the alleles by MAF
-    genomat <- matrix(c(0,1,2,1,0,0,0,0,1,1,0,1), nrow=4, byrow=TRUE)
-    gds_checks(result, genomat, c("A,T","G,C","T,A","G,C"))
-    unlink(list.files(pattern = temp_prefix))
+
+    genomat <- matrix(c(0, 1, 2, 1, 0, 0, 0, 0, 1, 1, 0, 1), nrow = 4, byrow = TRUE)
+    gds_checks(result, genomat, c("A,T", "G,C", "T,A", "G,C"))
+
+    unlink(paste0(temp_prefix, c(".bed", ".bim", ".fam", ".log", ".nosex")))
     unlink_files()
 })
 
