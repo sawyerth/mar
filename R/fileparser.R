@@ -30,7 +30,7 @@
     firstline <- readLines(con, n = 1)
     close(con)
     # check header
-    if(!is.null(myheader)) {
+    if (!is.null(myheader)) {
         stopifnot(grepl(myheader, firstline, ignore.case = TRUE))
     }
     # guess delimiter
@@ -40,9 +40,10 @@
 
 .read_table <- function(filename, header, sep) {
     con <- .open_txt(filename)
-    tryCatch({
-        df <- utils::read.table(con, header = header, sep = sep, row.names = NULL, stringsAsFactors = FALSE)
-    },
+    tryCatch(
+        {
+            df <- utils::read.table(con, header = header, sep = sep, row.names = NULL, stringsAsFactors = FALSE)
+        },
         finally = close(con)
     )
     return(df)
@@ -56,7 +57,7 @@
     delim <- .firstline(geno.fn)
     # not allow row or column names
     df <- .read_table(geno.fn, header = FALSE, sep = delim)
-    df <- as.matrix(df)
+    df <- data.matrix(df)
     dimnames(df) <- NULL
     # check that the data only contains 0,1,...,ploidy
     # .valid_genotype(df, ploidy)
@@ -89,7 +90,7 @@
 .read_lonlat <- function(lonlat.fn) {
     delim <- .firstline(lonlat.fn, "ID\\s*[,\t]\\s*(LON(GITUDE)?)\\s*[,\t]\\s*(LAT(ITUDE)?)")
     df <- .read_table(lonlat.fn, header = TRUE, sep = delim)
-    .valid_lonlat(as.matrix(df[,2:3]))
+    .valid_lonlat(as.matrix(df[, 2:3]))
     return(df)
 }
 
@@ -114,7 +115,7 @@
 #' geno <- text_parser("genotypes.txt", "samples.txt", "positions.txt")
 #'
 #' # For haploid data
-#' geno <- text_parser("genotypes.txt", ploidy=1)
+#' geno <- text_parser("genotypes.txt", ploidy = 1)
 #' }
 text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
     # check if geno.fn is a valid txt file
@@ -169,7 +170,7 @@ text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
 #' gds_file <- vcf_parser("input.vcf")
 #'
 #' # Convert and open GDS file
-#' gds_conn <- vcf_parser("input.vcf.gz", opengds=TRUE)
+#' gds_conn <- vcf_parser("input.vcf.gz", opengds = TRUE)
 #' }
 vcf_parser <- function(vcf.fn, gds.fn = NULL, opengds = FALSE) {
     # check if vcf.fn is a valid vcf file. used '.gz' here for marApp compatibility
@@ -211,7 +212,7 @@ vcf_parser <- function(vcf.fn, gds.fn = NULL, opengds = FALSE) {
 #' gds_file <- plink_parser("dataset")
 #'
 #' # Convert and open GDS file
-#' gds_conn <- plink_parser("dataset", opengds=TRUE)
+#' gds_conn <- plink_parser("dataset", opengds = TRUE)
 #' }
 plink_parser <- function(plink.fn, gds.fn = NULL, opengds = FALSE) {
     # add suffix to plink.fn
@@ -259,5 +260,3 @@ lonlat_parser <- function(lonlat.fn) {
     lonlatdf <- .read_lonlat(lonlat.fn)
     return(lonlatdf)
 }
-
-
