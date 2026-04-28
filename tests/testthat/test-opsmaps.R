@@ -14,7 +14,7 @@ test_that(".areaofsquare multiplies dimensions", {
 test_that(".rowcol_extent creates the correct extent", {
     gm <- gm1001g
     bbox <- c(1, 10, 1, 10)
-    expected <- raster::extent(gm$maps$samplemap, bbox[1], bbox[2], bbox[3], bbox[4])
+    expected <- terra::ext(bbox[1], bbox[2], bbox[3], bbox[4])
     result <- mar:::.rowcol_extent(gm$maps, bbox)
-    expect_equal(result, expected)
+    expect_equal(as.vector(result), as.vector(expected))
 })

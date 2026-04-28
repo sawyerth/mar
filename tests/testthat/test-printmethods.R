@@ -39,7 +39,7 @@ test_that("print.marmaps summarizes map data", {
     expect_output(print(mm), "longitude range:")
     expect_output(print(mm), "latitude range:")
     expect_output(print(mm), "samplemap raster layer:")
-    expect_output(print(mm), "RasterLayer")
+    expect_output(print(mm), "SpatRaster")
     expect_output(print(mm), "head of sampleid and lonlat:")
     expect_output(print(mm), "sample1")
     expect_invisible(print(mm))
