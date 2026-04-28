@@ -1,34 +1,30 @@
 # matrix validators. Also validates that there are no invariant sites
 .valid_genotype <- function(genotype, ploidy) {
-    # if (ploidy != 2) {
-    #     warning(paste0("ploidy = ", ploidy, " != 2, be careful with the interpretation of the results"))
-    # }
-    # 0 = HomRef, 1 = Het, 2 = HomAlt
-    valid_vars <- seq(0, ploidy)
-    all_vars <- unique(as.vector(genotype))
-    AC <- matrixStats::rowSums2(genotype)
-    # number of sampled lineages
-    xN = ncol(genotype)*ploidy
     if (!is.matrix(genotype)) {
         stop("genotype must be a matrix")
     }
-    if (!all(all_vars %in% valid_vars)) {
-        badvars = all_vars[!all_vars %in% valid_vars]
-        stop(paste0("genotype contains ", length(badvars), " unique invalid values: ", toString(head(badvars)), "..."))
+
+    valid_vars <- seq(0, ploidy)
+
+    all_vars <- unique(as.vector(genotype))
+
+    # allow NA, but reject invalid allele states
+    badvars <- all_vars[!is.na(all_vars) & !(all_vars %in% valid_vars)]
+
+    if (length(badvars) > 0) {
+        stop(paste0(
+            "genotype contains ",
+            length(badvars),
+            " unique invalid values: ",
+            toString(head(badvars)), "..."
+        ))
     }
-    if (any(AC == 0)) {
-        badac = which(AC == 0)
-        stop(paste0("genotype is homozygous reference at ", length(badac), " locations: ", toString(head(badac)), "..."))
-    }
-    if (any(AC == xN)) {
-        badac = which(AC == xN)
-        stop(paste0("genotype is homozygous alternative at ", length(badac), " locations: ", toString(head(badac)), "..."))
-    }
+
     return(invisible())
 }
 
 # genotype operations that works on both margeno and SeqArray objects
-.get_genodata <- function(x, what = c("sample.id", "variant.id", "position", "chromosome","genotype","ploidy", "num.variant")) {
+.get_genodata <- function(x, what = c("sample.id", "variant.id", "position", "chromosome", "genotype", "ploidy", "num.variant")) {
     what <- match.arg(what)
     if ("margeno" %in% class(x)) {
         return(switch(what,
@@ -55,8 +51,8 @@
     stopifnot(class(gg) == "array")
     stopifnot(length(dim(gg)) == 3 & dim(gg)[1] == ploidy)
     # sum up the allele counts
-    df <- apply(gg, c(3,2), sum)
-    attr(df, 'dimnames') <- NULL
+    df <- apply(gg, c(3, 2), sum)
+    attr(df, "dimnames") <- NULL
     .valid_genotype(df, ploidy)
     return(df)
 }
@@ -127,9 +123,9 @@
 .filter_genosample <- function(x, sample.id) {
     stopifnot(all(sample.id %in% .get_genodata(x, "sample.id")))
     if ("margeno" %in% class(x)) {
-        idx = match(sample.id, x$sample.id)
-        x$sample.id = x$sample.id[idx]
-        x$genotype = as.matrix(x$genotype[,idx])
+        idx <- match(sample.id, x$sample.id)
+        x$sample.id <- x$sample.id[idx]
+        x$genotype <- as.matrix(x$genotype[, idx])
         return(x)
     } else if (class(x) == "SeqVarGDSClass") {
         SeqArray::seqSetFilter(x, sample.id = sample.id)
@@ -142,11 +138,11 @@
 .filter_genovariant <- function(x, variant.id) {
     stopifnot(all(variant.id %in% .get_genodata(x, "variant.id")))
     if ("margeno" %in% class(x)) {
-        idx = match(variant.id, x$variant.id)
-        x$variant.id = x$variant.id[idx]
-        x$position = x$position[idx]
-        x$chromosome = x$chromosome[idx]
-        x$genotype = as.matrix(x$genotype[idx,])
+        idx <- match(variant.id, x$variant.id)
+        x$variant.id <- x$variant.id[idx]
+        x$position <- x$position[idx]
+        x$chromosome <- x$chromosome[idx]
+        x$genotype <- as.matrix(x$genotype[idx, ])
         return(x)
     } else if (class(x) == "SeqVarGDSClass") {
         SeqArray::seqSetFilter(x, variant.id = variant.id)
@@ -158,9 +154,7 @@
 
 # author Feng Li, Department of Statistics, Stockholm University, Sweden.
 # https://github.com/feng-li/flutils/blob/master/R/math__hamonic.R
-.Hn <- function(n)
-{
-    out <- digamma(n+1) - digamma(1)
+.Hn <- function(n) {
+    out <- digamma(n + 1) - digamma(1)
     return(out)
 }
-
