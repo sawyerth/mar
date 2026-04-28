@@ -27,15 +27,12 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
         set.seed(myseed)
     }
     # match schemes (default to random)
-    scheme = match.arg(scheme)
+    scheme <- match.arg(scheme)
     # calculate and store raster area in the given gm$maps$samplemap
-    gmarea = .areaofraster(gm$maps$samplemap)
+    gmarea <- .areaofraster(gm$maps$samplemap)
     # the point where most samples are available (for inwards / outwards sampling)
-    maxids <- raster::which.max(gm$maps$samplemap)
-    if (length(maxids) > 1) {
-        warning('More than one cell with maximum samples')
-    }
-    r0c0 <- raster::rowColFromCell(gm$maps$samplemap, maxids[1])
+    maxrc <- as.data.frame(terra::which.max(gm$maps$samplemap))
+    r0c0 <- c(maxrc$row[1], maxrc$col[1])
     # End same as MARsampling --------------------------------------------------
     extlist <- .extlist_sample(gm, xfrac, scheme, nrep, r0c0)
 
@@ -49,9 +46,9 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
         outl <- lapply(extlist[[ii]], mutdiv.cells, gm = gm, gmarea = gmarea)
         out <- do.call(rbind, lapply(outl, as.data.frame, stringsAsFactors = FALSE))
         # append end theta (zero in all)
-        out[nrow(out)+1, ] <- rep(0, ncol(out))
+        out[nrow(out) + 1, ] <- rep(0, ncol(out))
         # append extlist as well
-        out$extl <- c(unlist(lapply(extlist[[ii]], paste0, collapse = ';')), "")
+        out$extl <- c(unlist(lapply(extlist[[ii]], paste0, collapse = ";")), "")
         out$repid <- ii # replicate id
         return(out)
     })
@@ -59,7 +56,7 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
 
     # set outdf as a marsamp class
     class(outdf) <- c(class(outdf), "marextinct") # marextinction output class
-    attr(outdf, 'scheme') <- scheme
+    attr(outdf, "scheme") <- scheme
     return(outdf)
 }
 
@@ -71,12 +68,19 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
             myprob <- rcprob[[1]]
         } else {
             myprob <- rcprob[[1]] * rcprob[[2]]
+            if (length(myprob) == 0 || sum(myprob) == 0) {
+                return(NULL)
+            }
+
             myprob <- myprob / sum(myprob)
         }
     }
     # add names if myprob is not NULL
-    if (!is.null(myprob)) {
+    if (!is.null(myprob) && length(myprob) == length(gridpresent)) {
         names(myprob) <- gridpresent
+    } else if (!is.null(myprob)) {
+        # fallback: invalid probability vector
+        return(NULL)
     }
     return(myprob)
 }
@@ -92,21 +96,20 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
 # core sampling function
 .extlist_sample <- function(gm, xfrac, scheme, nrep, r0c0) {
     gridpresent <- sort(unique(gm$maps$cellid))
-    gridrowcol <- raster::rowColFromCell(gm$maps$samplemap, gridpresent)
+    gridrowcol <- terra::rowColFromCell(gm$maps$samplemap, gridpresent)
     # find right stepsize
     mystep <- ifelse(length(gridpresent) > 100, ceiling(length(gridpresent) * xfrac), 1)
-    rvars <- gridrowcol[,'row']
-    cvars <- gridrowcol[,'col']
+    rvars <- gridrowcol[, 1]
+    cvars <- gridrowcol[, 2]
 
     # Calculate probability of all grids (rescale at each step). synonymous to the rcprob
-    rcprob <- switch(
-        scheme,
+    rcprob <- switch(scheme,
         random = list(NULL, NULL),
         # no prob
-        inwards = lapply(.point_prob(rvars, cvars, r0c0, ss=1), function(x) 1-x),
-        outwards = .point_prob(rvars, cvars, r0c0, ss=1),
-        southnorth = .pole_prob(rvars, from = 'S'),
-        northsouth = .pole_prob(rvars, from = 'N')
+        inwards = lapply(.point_prob(rvars, cvars, r0c0, ss = 1), function(x) 1 - x),
+        outwards = .point_prob(rvars, cvars, r0c0, ss = 1),
+        southnorth = .pole_prob(rvars, from = "S"),
+        northsouth = .pole_prob(rvars, from = "N")
     )
     myprob <- .rcprob2myprob(rcprob, gridpresent)
     extlist <- lapply(1:nrep, function(ii) .extsample(gridpresent, myprob, mystep))
@@ -115,7 +118,7 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
 
 .extsample <- function(gridpresent, myprob, mystep) {
     # Create a list to store grids that remain after each extinction step
-    extl <- vector('list', length = ceiling(length(gridpresent) / mystep))
+    extl <- vector("list", length = ceiling(length(gridpresent) / mystep))
     extl[[1]] <- gridpresent
 
     # Simulate extinction process
@@ -142,10 +145,11 @@ MARextinction <- function(gm, scheme = .MARsampling_schemes, nrep = 10, xfrac = 
 .animate_MARextinction <- function(gm, extl, pause = 0.2) {
     grDevices::dev.flush()
     plot.marmaps(gm$maps)
-    rr <- gm$maps$samplemap; values(rr) <- NA
+    rr <- gm$maps$samplemap
+    values(rr) <- NA
     for (ii in seq_along(extl)) {
         rr[setdiff(gm$maps$cellid, extl[[ii]])] <- 1
-        raster::plot(rr, add = T, col = 'black', legend = FALSE)
+        terra::plot(rr, add = T, col = "black", legend = FALSE)
         Sys.sleep(pause)
     }
     return(invisible())
