@@ -1,15 +1,15 @@
 # a collection of plot methods
-.anncol = "darkgray"
+.anncol <- "darkgray"
 # RColorBrewer::brewer.pal(9, "Set1")
-.catcol = c("#999999", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
+.catcol <- c("#999999", "#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
 
 .ann_marsamp <- function(c, z, location) {
-    equation <- bquote(M == .(round(c,2)) * A^.(round(z,2)))
+    equation <- bquote(M == .(round(c, 2)) * A^.(round(z, 2)))
     legend(location, legend = as.expression(equation), bty = "n", text.col = .anncol)
 }
 
 .ann_marextinct <- function(z, location) {
-    equation <- bquote((1-m) == (1-a)^.(round(z,2)))
+    equation <- bquote((1 - m) == (1 - a)^.(round(z, 2)))
     legend(location, legend = as.expression(equation), bty = "n", text.col = .anncol)
 }
 
@@ -34,10 +34,10 @@
 plot.marmaps <- function(x, ...) {
     # old_par <- par(no.readonly = T)
     # par(mar = c(5.1, 4.1, 4.1, 4.1))
-    raster::plot(raster::extent(x$samplemap), xlab = 'lon', ylab = 'lat')
-    raster::plot(x$samplemap, add = T, legend = F)
+    terra::plot(terra::ext(x$samplemap), xlab = "lon", ylab = "lat")
+    terra::plot(x$samplemap, add = T, legend = F)
     points(x$lonlat)
-    raster::plot(x$samplemap, add = T, legend.only = T, legend.mar = 3, legend.args = list(text = 'n'))
+    terra::plot(x$samplemap, add = T, legend.only = T, legend.mar = 3, legend.args = list(text = "n"))
     # par(old_par)
     return(invisible())
 }
@@ -53,7 +53,7 @@ plot.marmaps <- function(x, ...) {
 #' @export
 #'
 #' @examples
-#' sfs_object <- sfs(AC=c(1,1,0,2,0,1,1,0,0,2,30), N=50, ploidy=2)
+#' sfs_object <- sfs(AC = c(1, 1, 0, 2, 0, 1, 1, 0, 0, 2, 30), N = 50, ploidy = 2)
 #' plot(sfs_object)
 plot.sfs <- function(x, ...) {
     data <- as.vector(x)
@@ -80,13 +80,13 @@ plot.sfs <- function(x, ...) {
 #'
 #' @examples
 #' \dontrun{
-#'     plot(marsamp_object, c=0.5, z=0.25)
+#' plot(marsamp_object, c = 0.5, z = 0.25)
 #' }
 plot.marsamp <- function(x, c = NULL, z = NULL, Mtype = .Mtype, Atype = .Atype, logscale = FALSE, ...) {
-    Mtype = match.arg(Mtype)
-    Atype = match.arg(Atype)
-    tmpdf = x[, c(Atype, Mtype)]
-    tmpdf = tmpdf[(tmpdf[,Mtype] > 0 & !is.na(tmpdf[,Mtype])), ]
+    Mtype <- match.arg(Mtype)
+    Atype <- match.arg(Atype)
+    tmpdf <- x[, c(Atype, Mtype)]
+    tmpdf <- tmpdf[(tmpdf[, Mtype] > 0 & !is.na(tmpdf[, Mtype])), ]
     # previously had a check for length(unique(tmpdf[,Mtype])) < 4
     if (nrow(tmpdf) == 0) {
         warning(paste0("MAR for Mtype = ", Mtype, ", Atype = ", Atype, " cannot be plotted"))
@@ -94,13 +94,13 @@ plot.marsamp <- function(x, c = NULL, z = NULL, Mtype = .Mtype, Atype = .Atype, 
     } else {
         # plot
         if (logscale) {
-            graphics::plot(x = tmpdf[, Atype], y = tmpdf[, Mtype], log = 'xy', xlab = Atype, ylab = Mtype, ...)
+            graphics::plot(x = tmpdf[, Atype], y = tmpdf[, Mtype], log = "xy", xlab = Atype, ylab = Mtype, ...)
             # log(M) = log(c) + A*z
-            if(!is.null(c) & !is.null(z)) {
+            if (!is.null(c) & !is.null(z)) {
                 abline(a = c, b = z, col = .anncol)
                 .ann_marsamp(c, z, location = "topright")
             }
-        } else{
+        } else {
             graphics::plot(x = tmpdf[, Atype], y = tmpdf[, Mtype], xlab = Atype, ylab = Mtype, ...)
             # M = c*A^z
             if (!is.null(c) & !is.null(z)) {
@@ -127,17 +127,17 @@ plot.marsamp <- function(x, c = NULL, z = NULL, Mtype = .Mtype, Atype = .Atype, 
 #'
 #' @examples
 #' \dontrun{
-#'     plot(marextinct_object, z=0.25)
+#' plot(marextinct_object, z = 0.25)
 #' }
 plot.marextinct <- function(x, z = NULL, Mtype = .Mtype, Atype = .Atype, ...) {
-    Mtype = match.arg(Mtype)
-    Atype = match.arg(Atype)
+    Mtype <- match.arg(Mtype)
+    Atype <- match.arg(Atype)
     # remove NA or zero data
-    tmpdf = x[, c(Atype, Mtype)]
-    tmpdf = tmpdf[(tmpdf[,Mtype] > 0 & !is.na(tmpdf[,Mtype])), ]
+    tmpdf <- x[, c(Atype, Mtype)]
+    tmpdf <- tmpdf[(tmpdf[, Mtype] > 0 & !is.na(tmpdf[, Mtype])), ]
     # generate area loss data (scale by the first value not the max value)
-    a_per = 1 - tmpdf[, Atype]/(tmpdf[1, Atype])
-    m_per = tmpdf[, Mtype]/(tmpdf[1, Mtype])
+    a_per <- 1 - tmpdf[, Atype] / (tmpdf[1, Atype])
+    m_per <- tmpdf[, Mtype] / (tmpdf[1, Mtype])
     # previously had a check for length(unique(tmpdf[,Mtype])) < 4
     if (nrow(tmpdf) == 0) {
         stop(paste0("MAR for Mtype = ", Mtype, ", Atype = ", Atype, " cannot be plotted"))
@@ -146,7 +146,7 @@ plot.marextinct <- function(x, z = NULL, Mtype = .Mtype, Atype = .Atype, ...) {
     # m_per = 1 - (1-a_per)^z
     graphics::plot(x = a_per, y = m_per, xlab = paste0("% of ", Atype, " lost"), ylab = paste0("% of ", Mtype, " remained"))
     if (!is.null(z)) {
-        curve((1-x)^z, add = TRUE, col = .anncol)
+        curve((1 - x)^z, add = TRUE, col = .anncol)
         .ann_marextinct(z, location = "topright")
     }
     return(invisible())
@@ -157,10 +157,12 @@ plot.marextinct <- function(x, z = NULL, Mtype = .Mtype, Atype = .Atype, ...) {
     old_par <- par(no.readonly = T)
     par(mfrow = c(ceiling(length(obj$sfs) / 2), 2), mar = c(5.1, 4.1, 2.1, 2.1))
     for (ii in seq_along(obj$sfs)) {
-        mname = names(obj$sfs)[ii]
+        mname <- names(obj$sfs)[ii]
         plot.sfs(obj$sfs[[ii]], col = .catcol[ii], border = NA, main = mname)
-        .ann_marsadsfs(aa = AICtabs$AIC[attr(AICtabs, "row.names") == mname],
-                       ll = obj$statdf[obj$statdf$model == mname, 'logLik'], location = "topright")
+        .ann_marsadsfs(
+            aa = AICtabs$AIC[attr(AICtabs, "row.names") == mname],
+            ll = obj$statdf[obj$statdf$model == mname, "logLik"], location = "topright"
+        )
     }
     par(old_par)
 }
@@ -185,4 +187,3 @@ plot.marextinct <- function(x, z = NULL, Mtype = .Mtype, Atype = .Atype, ...) {
     par(old_par)
     return(invisible())
 }
-
