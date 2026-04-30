@@ -23,7 +23,7 @@
     return(invisible())
 }
 
-# genotype operations that works on both margeno and SeqArray objects
+# genotype operations that works on both margeno and data frame objects
 .get_genodata <- function(x, what = c("sample.id", "variant.id", "position", "chromosome", "genotype", "ploidy", "num.variant")) {
     what <- match.arg(what)
     if ("margeno" %in% class(x)) {
@@ -31,17 +31,48 @@
             "num.variant" = length(x$variant.id),
             x[[what]]
         ))
-    } else if (class(x) == "SeqVarGDSClass") {
-        # TODO: nsnps debug
+    } else if (is.data.frame(x)) {
         return(switch(what,
-            "num.variant" = SeqArray::seqSummary(x, verbose = FALSE)$num.variant,
-            "ploidy" = SeqArray::seqSummary(x, verbose = FALSE)$ploidy,
-            "genotype" = .seqgeno2mat(SeqArray::seqGetData(x, what), SeqArray::seqSummary(x, verbose = FALSE)$ploidy),
-            SeqArray::seqGetData(x, what)
+            "sample.id"   = names(x)[-(1:9)],
+            "variant.id"  = x$ID,
+            "chromosome"  = x$CHROM,
+            "position"    = x$POS,
+            "ploidy"      = .infer_ploidy(x),
+            "num.variant" = nrow(x),
+            "genotype"    = .vcfgt2mat(x)
         ))
     } else {
-        stop("x must be either a SeqArray or a margeno object")
+        stop("x must be either a data frame (VCF) or a margeno object")
     }
+}
+
+# Extract genotype dosage matrix (variant x sample) from a VCF data frame
+.vcfgt2mat <- function(x) {
+    sample_cols <- x[, -(1:9), drop = FALSE]
+    gt <- lapply(sample_cols, function(col) {
+        # Extract GT field (before first colon)
+        gt_field <- sub(":.*", "", col)
+        vapply(gt_field, function(g) {
+            if (g %in% c(".", "./.", ".|.")) {
+                return(NA_integer_)
+            }
+            alleles <- as.integer(strsplit(g, "[/|]")[[1]])
+            sum(alleles)
+        }, integer(1))
+    })
+    matrix(unlist(gt),
+        nrow = nrow(x), ncol = length(gt),
+        dimnames = list(x$ID, names(gt))
+    )
+}
+
+.infer_ploidy <- function(x) {
+    sample_cols <- x[, -(1:9), drop = FALSE]
+    first_gt <- sub(":.*", "", sample_cols[[1]][1])
+    if (first_gt %in% c(".", "./.", ".|.")) {
+        return(2L)
+    } # fallback for missing
+    length(strsplit(first_gt, "[/|]")[[1]])
 }
 
 # convert seqGetData output to genotype matrix in margeno
@@ -57,9 +88,9 @@
     return(df)
 }
 
-# convert seqArray object to margeno object
-.seqarray2margeno <- function(x) {
-    stopifnot(class(x) == "SeqVarGDSClass")
+# convert data frame object to margeno object
+.dataframe2margeno <- function(x) {
+    stopifnot(is.data.frame(x))
 
     # create margeno object
     out <- .new_margeno(
@@ -127,11 +158,12 @@
         x$sample.id <- x$sample.id[idx]
         x$genotype <- as.matrix(x$genotype[, idx])
         return(x)
-    } else if (class(x) == "SeqVarGDSClass") {
-        SeqArray::seqSetFilter(x, sample.id = sample.id)
-        return(x)
+    } else if (is.data.frame(x)) {
+        sample_cols <- names(x)[-(1:9)]
+        idx <- match(sample.id, sample_cols)
+        return(x[, c(1:9, 9 + idx)])
     } else {
-        stop("x must be either a SeqArray or a margeno object")
+        stop("x must be either a data frame (VCF) or a margeno object")
     }
 }
 
@@ -144,11 +176,11 @@
         x$chromosome <- x$chromosome[idx]
         x$genotype <- as.matrix(x$genotype[idx, ])
         return(x)
-    } else if (class(x) == "SeqVarGDSClass") {
-        SeqArray::seqSetFilter(x, variant.id = variant.id)
-        return(x)
+    } else if (is.data.frame(x)) {
+        idx <- match(variant.id, x$ID)
+        return(x[idx, ])
     } else {
-        stop("x must be either a SeqArray or a margeno object")
+        stop("x must be either a data frame (VCF) or a margeno object")
     }
 }
 
