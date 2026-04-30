@@ -87,4 +87,3 @@ test_that("genomaps class works correctly", {
     expect_error(genomaps(mg_diff, mm))
 })
 
-test_that("longlat_raster works correctly", {})
