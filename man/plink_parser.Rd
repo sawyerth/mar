@@ -4,7 +4,7 @@
 \alias{plink_parser}
 \title{Convert PLINK binary files to GDS format}
 \usage{
-plink_parser(plink.fn, gds.fn = NULL, opengds = FALSE)
+plink_parser(plink.fn)
 }
 \arguments{
 \item{plink.fn}{Base name of PLINK files (without .bed/.bim/.fam extension)}
@@ -29,6 +29,6 @@ using SeqArray package.
 gds_file <- plink_parser("dataset")
 
 # Convert and open GDS file
-gds_conn <- plink_parser("dataset", opengds=TRUE)
+gds_conn <- plink_parser("dataset", opengds = TRUE)
 }
 }

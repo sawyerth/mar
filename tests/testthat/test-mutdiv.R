@@ -4,8 +4,8 @@ create_test_genomaps <- function() {
     variant.id <- as.integer(1:3)
     position <- as.integer(c(100, 200, 300))
     chromosome <- c("1", "1", "2")
-    genotype <- matrix(c(0,1,2,1,0,2,2,1,0,1,2,0), nrow=3, byrow=TRUE)
-    mg <- margeno(sample.id, variant.id, position, chromosome, genotype, ploidy=2)
+    genotype <- matrix(c(0, 1, 2, 1, 0, 2, 2, 1, 0, 1, 2, 0), nrow = 3, byrow = TRUE)
+    mg <- margeno(sample.id, variant.id, position, chromosome, genotype, ploidy = 2)
 
     # Create spatial data
     lonlatdf <- data.frame(
@@ -13,7 +13,29 @@ create_test_genomaps <- function() {
         longitude = c(-73.935, -73.934, -73.933, -73.932),
         latitude = c(40.730, 40.731, 40.732, 40.733)
     )
-    mm <- marmaps(lonlatdf, mapres=0.001, mapcrs="+proj=longlat +datum=WGS84")
+    mm <- marmaps(lonlatdf, mapres = 0.001, mapcrs = "+proj=longlat +datum=WGS84")
+
+    # Create genomaps object
+    gm <- genomaps(mg, mm)
+    return(gm)
+}
+
+create_test_genomaps_na <- function() {
+    # Create sample data
+    sample.id <- c("s1", "s2", "s3", "s4")
+    variant.id <- as.integer(1:3)
+    position <- as.integer(c(100, 200, 300))
+    chromosome <- c("1", "1", "2")
+    genotype <- matrix(c(0, 1, 2, 1, 0, NA, 2, 1, 0, 1, NA, 0), nrow = 3, byrow = TRUE)
+    mg <- margeno(sample.id, variant.id, position, chromosome, genotype, ploidy = 2)
+
+    # Create spatial data
+    lonlatdf <- data.frame(
+        id = sample.id,
+        longitude = c(-73.935, -73.934, -73.933, -73.932),
+        latitude = c(40.730, 40.731, 40.732, 40.733)
+    )
+    mm <- marmaps(lonlatdf, mapres = 0.001, mapcrs = "+proj=longlat +datum=WGS84")
 
     # Create genomaps object
     gm <- genomaps(mg, mm)
@@ -25,7 +47,7 @@ test_that("mutdiv.gridded basic functionality works", {
     gmarea <- .areaofraster(gm$maps$samplemap)
 
     # Test with a simple 50x50 bounding box
-    result <- mutdiv.gridded(gm, gmarea, bbox=c(1,50,1,50))
+    result <- mutdiv.gridded(gm, gmarea, bbox = c(1, 50, 1, 50))
 
     # Check structure
     expect_type(result, "list")
@@ -41,12 +63,12 @@ test_that("mutdiv.gridded basic functionality works", {
     expect_true(is.numeric(result$Asq))
 
     # Test with revbbox
-    result_rev <- mutdiv.gridded(gm, gmarea, bbox=c(1,2,1,2), revbbox=TRUE)
+    result_rev <- mutdiv.gridded(gm, gmarea, bbox = c(1, 2, 1, 2), revbbox = TRUE)
     expect_false(identical(result, result_rev))
 
     # Test invalid inputs
-    expect_error(mutdiv.gridded(gm, gmarea, bbox=c(1,2,3)))
-    expect_error(mutdiv.gridded(gm, gmarea, bbox=c("a","b","c","d")))
+    expect_error(mutdiv.gridded(gm, gmarea, bbox = c(1, 2, 3)))
+    expect_error(mutdiv.gridded(gm, gmarea, bbox = c("a", "b", "c", "d")))
 })
 
 test_that("mutdiv.cells basic functionality works", {
@@ -93,10 +115,42 @@ test_that(".calc_theta produces valid results", {
     expect_true(result_all$thetapi >= 0)
 
     # Test with subset of samples
-    result_subset <- .calc_theta(gm, sampleid=1:2)
+    result_subset <- .calc_theta(gm, sampleid = 1:2)
     expect_equal(result_subset$N, 2)
     expect_true(result_subset$M <= result_all$M)
 })
+
+
+test_that(".calc_theta correctly handles fully missing sites", {
+    gm <- create_test_genomaps()
+    attr(gm, "genolen") <- 1000
+
+    gm_na <- gm
+    geno <- gm_na$geno$genotype
+
+    # make entire site missing (row 1)
+    geno[1, ] <- NA
+    gm_na$geno$genotype <- geno
+
+    res <- .calc_theta(gm_na)
+
+    # should not crash
+    expect_true(is.numeric(res$thetapi))
+    expect_true(is.numeric(res$thetaw))
+
+    # segregating sites must be <= total sites - 1
+    expect_true(res$M <= (nrow(geno) - 1))
+})
+
+test_that("test that .calc_theta output is correct", {
+    gm <- create_test_genomaps_na()
+
+    res <- .calc_theta(gm)
+
+    expect_true(abs(res$thetapi - 0.5172) < 0.001)
+    expect_true(abs(res$thetaw - 1.2570) < 0.001)
+})
+
 
 test_that(".mutdiv.cellids handles various inputs correctly", {
     gm <- create_test_genomaps()

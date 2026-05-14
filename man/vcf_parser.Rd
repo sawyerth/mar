@@ -4,7 +4,7 @@
 \alias{vcf_parser}
 \title{Convert VCF file to GDS format}
 \usage{
-vcf_parser(vcf.fn, gds.fn = NULL, opengds = FALSE)
+vcf_parser(vcf.fn)
 }
 \arguments{
 \item{vcf.fn}{Path to the input VCF file. Can be either .vcf or .vcf.gz format}
@@ -29,6 +29,6 @@ using SeqArray package.
 gds_file <- vcf_parser("input.vcf")
 
 # Convert and open GDS file
-gds_conn <- vcf_parser("input.vcf.gz", opengds=TRUE)
+gds_conn <- vcf_parser("input.vcf.gz", opengds = TRUE)
 }
 }

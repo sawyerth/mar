@@ -30,7 +30,7 @@
     firstline <- readLines(con, n = 1)
     close(con)
     # check header
-    if(!is.null(myheader)) {
+    if (!is.null(myheader)) {
         stopifnot(grepl(myheader, firstline, ignore.case = TRUE))
     }
     # guess delimiter
@@ -40,9 +40,10 @@
 
 .read_table <- function(filename, header, sep) {
     con <- .open_txt(filename)
-    tryCatch({
-        df <- utils::read.table(con, header = header, sep = sep, row.names = NULL, stringsAsFactors = FALSE)
-    },
+    tryCatch(
+        {
+            df <- utils::read.table(con, header = header, sep = sep, row.names = NULL, stringsAsFactors = FALSE)
+        },
         finally = close(con)
     )
     return(df)
@@ -56,7 +57,7 @@
     delim <- .firstline(geno.fn)
     # not allow row or column names
     df <- .read_table(geno.fn, header = FALSE, sep = delim)
-    df <- as.matrix(df)
+    df <- data.matrix(df)
     dimnames(df) <- NULL
     # check that the data only contains 0,1,...,ploidy
     # .valid_genotype(df, ploidy)
@@ -89,8 +90,37 @@
 .read_lonlat <- function(lonlat.fn) {
     delim <- .firstline(lonlat.fn, "ID\\s*[,\t]\\s*(LON(GITUDE)?)\\s*[,\t]\\s*(LAT(ITUDE)?)")
     df <- .read_table(lonlat.fn, header = TRUE, sep = delim)
-    .valid_lonlat(as.matrix(df[,2:3]))
+    .valid_lonlat(as.matrix(df[, 2:3]))
     return(df)
+}
+
+.read_bed <- function(bed.fn, n_samples, n_variants) {
+    con <- file(bed.fn, "rb")
+    on.exit(close(con))
+
+    # Validate magic bytes and mode byte
+    magic <- readBin(con, raw(), n = 3)
+    if (!identical(magic, as.raw(c(0x6c, 0x1b, 0x01)))) {
+        stop("Invalid .bed file: bad magic bytes or not in SNP-major mode")
+    }
+
+    bytes_per_variant <- ceiling(n_samples / 4)
+    raw_data <- readBin(con, raw(), n = bytes_per_variant * n_variants)
+
+    # PLINK encoding: 00=hom REF(2), 01=missing(NA), 10=het(1), 11=hom ALT(0)
+    lookup <- c(2L, NA_integer_, 1L, 0L)
+
+    geno <- matrix(NA_integer_, nrow = n_variants, ncol = n_samples)
+    for (v in seq_len(n_variants)) {
+        raw_chunk <- raw_data[((v - 1) * bytes_per_variant + 1):(v * bytes_per_variant)]
+        bits <- rawToBits(raw_chunk)
+        # Each genotype is 2 bits; take pairs
+        idx <- seq(1, n_samples * 2, by = 2)
+        two_bit <- bitwOr(as.integer(bits[idx]), bitwShiftL(as.integer(bits[idx + 1]), 1)) + 1L
+        geno[v, ] <- lookup[two_bit[seq_len(n_samples)]]
+    }
+
+    geno
 }
 
 #' Parse text files containing genotype data
@@ -114,7 +144,7 @@
 #' geno <- text_parser("genotypes.txt", "samples.txt", "positions.txt")
 #'
 #' # For haploid data
-#' geno <- text_parser("genotypes.txt", ploidy=1)
+#' geno <- text_parser("genotypes.txt", ploidy = 1)
 #' }
 text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
     # check if geno.fn is a valid txt file
@@ -169,25 +199,28 @@ text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
 #' gds_file <- vcf_parser("input.vcf")
 #'
 #' # Convert and open GDS file
-#' gds_conn <- vcf_parser("input.vcf.gz", opengds=TRUE)
+#' gds_conn <- vcf_parser("input.vcf.gz", opengds = TRUE)
 #' }
-vcf_parser <- function(vcf.fn, gds.fn = NULL, opengds = FALSE) {
-    # check if vcf.fn is a valid vcf file. used '.gz' here for marApp compatibility
-    vcf.ext <- c(".vcf", ".vcf.gz", ".gz")
-    stopifnot(any(sapply(vcf.ext, function(xx) grepl(xx, vcf.fn))))
-    # assign name if gds.fn is not provided
-    if (is.null(gds.fn)) {
-        gds.fn <- paste0(.strip_ext(vcf.fn, vcf.ext), ".gds")
-        message(paste0("Output GDS file name not provided. Using default: ", gds.fn, ". Working directory: ", getwd()))
-    }
-    # create gds file
-    SeqArray::seqVCF2GDS(vcf.fn, gds.fn)
-    if (opengds) {
-        f <- SeqArray::seqOpen(gds.fn)
-        return(f)
-    } else {
-        return(gds.fn)
-    }
+vcf_parser <- function(vcf.fn) {
+    con <- if (grepl("\\.gz$", vcf.fn)) gzfile(vcf.fn) else file(vcf.fn)
+
+    lines <- readLines(con)
+    close(con)
+
+    header_line <- grep("^#CHROM", lines, value = TRUE)
+    data_lines <- lines[!grepl("^#", lines)]
+
+    df <- read.table(
+        text = paste(c(header_line, data_lines), collapse = "\n"),
+        header = TRUE,
+        sep = "\t",
+        stringsAsFactors = FALSE,
+        comment.char = "",
+        colClasses = c("X.CHROM" = "character")
+    )
+
+    colnames(df)[1] <- "CHROM" # cleaner column names
+    return(df)
 }
 
 #' Convert PLINK binary files to GDS format
@@ -211,26 +244,32 @@ vcf_parser <- function(vcf.fn, gds.fn = NULL, opengds = FALSE) {
 #' gds_file <- plink_parser("dataset")
 #'
 #' # Convert and open GDS file
-#' gds_conn <- plink_parser("dataset", opengds=TRUE)
+#' gds_conn <- plink_parser("dataset", opengds = TRUE)
 #' }
-plink_parser <- function(plink.fn, gds.fn = NULL, opengds = FALSE) {
-    # add suffix to plink.fn
+plink_parser <- function(plink.fn) {
     bed.fn <- paste0(plink.fn, ".bed")
     fam.fn <- paste0(plink.fn, ".fam")
     bim.fn <- paste0(plink.fn, ".bim")
-    # assign name if gds.fn is not provided
-    if (is.null(gds.fn)) {
-        gds.fn <- paste0(.strip_ext(bed.fn, ".bed"), ".gds")
-        message(paste0("Output GDS file name not provided. Using default: ", gds.fn, ". Working directory: ", getwd()))
-    }
-    # create gds file
-    SeqArray::seqBED2GDS(bed.fn, fam.fn, bim.fn, gds.fn)
-    if (opengds) {
-        f <- SeqArray::seqOpen(gds.fn)
-        return(f)
-    } else {
-        return(gds.fn)
-    }
+
+    # Read .fam file: family, sample, father, mother, sex, phenotype
+    fam <- read.table(fam.fn,
+        header = FALSE, stringsAsFactors = FALSE,
+        col.names = c("FID", "IID", "PAT", "MAT", "SEX", "PHENOTYPE")
+    )
+
+    # Read .bim file: chrom, variant id, cm position, bp position, allele1, allele2
+    bim <- read.table(bim.fn,
+        header = FALSE, stringsAsFactors = FALSE,
+        colClasses = c("character", "character", "numeric", "integer", "character", "character"),
+        col.names = c("CHROM", "ID", "CM", "POS", "ALT", "REF")
+    )
+
+    # Read .bed file (binary genotype matrix)
+    n_samples <- nrow(fam)
+    n_variants <- nrow(bim)
+    geno <- .read_bed(bed.fn, n_samples, n_variants)
+
+    list(fam = fam, bim = bim, geno = geno)
 }
 
 #' Parse longitude/latitude coordinates from text file
@@ -259,5 +298,3 @@ lonlat_parser <- function(lonlat.fn) {
     lonlatdf <- .read_lonlat(lonlat.fn)
     return(lonlatdf)
 }
-
-

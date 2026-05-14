@@ -30,6 +30,6 @@ geno <- text_parser("genotypes.txt")
 geno <- text_parser("genotypes.txt", "samples.txt", "positions.txt")
 
 # For haploid data
-geno <- text_parser("genotypes.txt", ploidy=1)
+geno <- text_parser("genotypes.txt", ploidy = 1)
 }
 }

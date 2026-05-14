@@ -31,5 +31,5 @@ Calculate Genetic Diversity in a Gridded Bounding Box
 \examples{
 # Calculate mutation diversity in a 10x10 grid region
 gmarea <- mar:::.areaofraster(gm1001g$maps$samplemap)
-div <- mutdiv.gridded(gm1001g, gmarea, bbox=c(1,10,2,8))
+div <- mutdiv.gridded(gm1001g, gmarea, bbox = c(1, 10, 2, 8))
 }

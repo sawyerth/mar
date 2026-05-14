@@ -1,4 +1,4 @@
-.MARsampling_schemes = c("random", "inwards", "outwards", "southnorth", "northsouth")
+.MARsampling_schemes <- c("random", "inwards", "outwards", "southnorth", "northsouth")
 
 #' MAR sampling wrapper function
 #'
@@ -26,11 +26,11 @@ MARsampling <-
             set.seed(myseed)
         }
         # match schemes (default to random)
-        scheme = match.arg(scheme)
+        scheme <- match.arg(scheme)
         # if scheme is inwards, reverse the bounding box
-        revbbox = ifelse(scheme == "inwards", TRUE, FALSE)
+        revbbox <- ifelse(scheme == "inwards", TRUE, FALSE)
         # calculate and store raster area in the given gm$maps$samplemap
-        gmarea = .areaofraster(gm$maps$samplemap)
+        gmarea <- .areaofraster(gm$maps$samplemap)
         # the x and y number of cells in gm$maps$samplemap
         # y is Row is Lat. Selected by r1, r2.
         # x is Col is Lon. Selected by c1, c2.
@@ -39,17 +39,14 @@ MARsampling <-
         # the maximum size box can become
         minrange <- min(latrange, lonrange)
         # the point where most samples are available (for inwards / outwards sampling)
-        maxids <- raster::which.max(gm$maps$samplemap)
-        if (length(maxids) > 1) {
-            warning('More than one cell with maximum samples')
-        }
-        r0c0 <- raster::rowColFromCell(gm$maps$samplemap, maxids[1])
+        maxrc <- as.data.frame(terra::which.max(gm$maps$samplemap))
+        r0c0 <- c(maxrc$row[1], maxrc$col[1])
         # find right stepsize
-        mystep = ifelse(minrange > 100, ceiling(minrange * xfrac), 1)
-        sidesize = seq(1, minrange, by = mystep)
+        mystep <- ifelse(minrange > 100, ceiling(minrange * xfrac), 1)
+        sidesize <- seq(1, minrange, by = mystep)
         # differences btw different schemes are in the bounding boxes selected for diversity calculations
         # differences in bounding boxes are in the sample probability settings
-        bboxlist = lapply(
+        bboxlist <- lapply(
             sidesize,
             .bblist_sample,
             gm = gm,
@@ -66,9 +63,9 @@ MARsampling <-
         if (animate) {
             lapply(bboxlist, .animate_MARsampling, gm = gm)
         }
-        bboxlist = unlist(bboxlist, recursive = FALSE)
+        bboxlist <- unlist(bboxlist, recursive = FALSE)
         # calculate area and genetic diversity in each bounding boxes
-        outlist = lapply(
+        outlist <- lapply(
             bboxlist,
             mutdiv.gridded,
             gm = gm,
@@ -76,30 +73,44 @@ MARsampling <-
             revbbox = revbbox
         )
         # use rbind to avoid importing dplyr
-        outdf = do.call(rbind, lapply(outlist, as.data.frame, stringsAsFactors = FALSE))
+        outdf <- do.call(rbind, lapply(outlist, as.data.frame, stringsAsFactors = FALSE))
         # return bounding boxes as well
-        outdf$extent = unlist(lapply(bboxlist, paste0, collapse = ';'))
+        outdf$extent <- unlist(lapply(bboxlist, paste0, collapse = ";"))
         if (revbbox) {
-            outdf$extent = paste0('-', outdf$extent)
+            outdf$extent <- paste0("-", outdf$extent)
         } # mark reverse selections
         # set outdf as a marsamp class
         class(outdf) <- c(class(outdf), "marsamp") # marsampling output class
-        attr(outdf, 'scheme') <- scheme
+        attr(outdf, "scheme") <- scheme
         return(outdf)
     }
 
 # scheme based probfunc
 .prob_sample <- function(xx) {
-    pp = stats::dgeom(xx * 2, prob = 0.5)
+    if (length(xx) == 0) {
+        return(xx)
+    }
+    pp <- stats::dgeom(xx * 2, prob = 0.5)
+    if (all(pp == 0) || sum(pp, na.rm = TRUE) == 0) {
+        # fallback to uniform sampling
+        return(rep(1 / length(xx), length(xx)))
+    }
+
+    pp <- pp / sum(pp)
+
+    # handle any NaN/Inf just in case
+    if (any(!is.finite(pp))) {
+        return(rep(1 / length(xx), length(xx)))
+    }
     return(pp / sum(pp))
 }
 
 # southnorth / northsouth sample
-.pole_prob <- function(rvars, from = c('N', 'S')) {
-    rxx = rvars - 1
-    rprob = .prob_sample(rxx)
-    if (from == 'S') {
-        rprob = rev(rprob)
+.pole_prob <- function(rvars, from = c("N", "S")) {
+    rxx <- rvars - 1
+    rprob <- .prob_sample(rxx)
+    if (from == "S") {
+        rprob <- rev(rprob)
     }
     return(list(rprob, NULL))
 }
@@ -107,15 +118,25 @@ MARsampling <-
 # inwards / outwards sample
 .point_prob <- function(rvars, cvars, r0c0, ss) {
     stopifnot(all(dim(r0c0) == c(1, 2)))
-    rxx = abs(rvars - (r0c0[1, 1] + 0.5 - 0.5 * ss))
-    cxx = abs(cvars - (r0c0[1, 2] + 0.5 - 0.5 * ss))
-    rprob = .prob_sample(rxx)
-    cprob = .prob_sample(cxx)
+    rxx <- abs(rvars - (r0c0[1, 1] + 0.5 - 0.5 * ss))
+    cxx <- abs(cvars - (r0c0[1, 2] + 0.5 - 0.5 * ss))
+    rprob <- .prob_sample(rxx)
+    cprob <- .prob_sample(cxx)
     return(list(rprob, cprob))
 }
 
 # sample bounding boxes
 .bbsample <- function(ss, nrep, rvars, cvars, rprob, cprob) {
+    if (length(rvars) == 0 || length(cvars) == 0) {
+        return(list())
+    }
+
+    if (!is.null(rprob) && length(rprob) != length(rvars)) {
+        rprob <- NULL
+    }
+    if (!is.null(cprob) && length(cprob) != length(cvars)) {
+        cprob <- NULL
+    }
     # allow replacement, so that the probability is respected
     r1 <- sample(rvars, size = nrep, prob = rprob, replace = TRUE)
     c1 <- sample(cvars, size = nrep, prob = cprob, replace = TRUE)
@@ -123,8 +144,9 @@ MARsampling <-
     c2 <- c1 + ss - 1
 
     bblist <-
-        lapply(1:nrep, function(ii)
-            c(r1[ii], r2[ii], c1[ii], c2[ii]))
+        lapply(1:nrep, function(ii) {
+            c(r1[ii], r2[ii], c1[ii], c2[ii])
+        })
     return(bblist)
 }
 
@@ -142,17 +164,19 @@ MARsampling <-
         # at this sidesize, the available row and column numbers
         # TODO: assumes row = 1, col = 1 of raster is northwest corner.
         # Add row, go south. Add col, go east.
-        rvars = 1:(latrange - ss + 1)
-        cvars = 1:(lonrange - ss + 1)
+        if ((latrange - ss + 1) <= 0 || (lonrange - ss + 1) <= 0) {
+            return(list()) # skip invalid box sizes
+        }
+        rvars <- 1:(latrange - ss + 1)
+        cvars <- 1:(lonrange - ss + 1)
         # generate rprob and cprob given the scheme specified and current rvars / cvars
-        rcprob <- switch(
-            scheme,
+        rcprob <- switch(scheme,
             random = list(NULL, NULL),
             # no prob
             inwards = .point_prob(rvars, cvars, r0c0, ss),
             outwards = .point_prob(rvars, cvars, r0c0, ss),
-            southnorth = .pole_prob(rvars, from = 'S'),
-            northsouth = .pole_prob(rvars, from = 'N')
+            southnorth = .pole_prob(rvars, from = "S"),
+            northsouth = .pole_prob(rvars, from = "N")
         )
         # sample bounding boxes
         # run sampling
@@ -160,41 +184,48 @@ MARsampling <-
         # if need to have samples in all bounding boxes, rejection sampling
         if (quorum) {
             ncells <-
-                sapply(lapply(
-                    bblist,
-                    .rowcol_cellid,
-                    mm = gm$maps,
-                    revbbox = revbbox
-                ),
-                length)
-            ntry <- 0
-            nnrep = min(nrep * 5, min(latrange, lonrange) - 1)
-            while (any(ncells == 0) & ntry < 50) {
-                tbblist <-
-                    .bbsample(ss, nrep = nnrep, rvars, cvars, rcprob[[1]], rcprob[[2]])
-                tncells <-
-                    sapply(lapply(
-                        tbblist,
-                        .rowcol_cellid,
-                        mm = gm$maps,
-                        revbbox = revbbox
-                    ),
-                    length)
-                nnewbb <- min(sum(tncells > 0), sum(ncells == 0))
-                bbids <- which(ncells == 0)[nnewbb]
-                bblist[bbids] <- tbblist[tncells > 0][nnewbb]
-                ncells <-
-                    sapply(lapply(
+                sapply(
+                    lapply(
                         bblist,
                         .rowcol_cellid,
                         mm = gm$maps,
                         revbbox = revbbox
                     ),
-                    length)
-                ntry = ntry + 1
+                    length
+                )
+            ntry <- 0
+            nnrep <- min(nrep * 5, min(latrange, lonrange) - 1)
+            while (any(ncells == 0) & ntry < 50) {
+                tbblist <-
+                    .bbsample(ss, nrep = nnrep, rvars, cvars, rcprob[[1]], rcprob[[2]])
+                tncells <-
+                    sapply(
+                        lapply(
+                            tbblist,
+                            .rowcol_cellid,
+                            mm = gm$maps,
+                            revbbox = revbbox
+                        ),
+                        length
+                    )
+                nnewbb <- min(sum(tncells > 0), sum(ncells == 0))
+                bbids <- which(ncells == 0)[nnewbb]
+                bblist[bbids] <- tbblist[tncells > 0][nnewbb]
+                ncells <-
+                    sapply(
+                        lapply(
+                            bblist,
+                            .rowcol_cellid,
+                            mm = gm$maps,
+                            revbbox = revbbox
+                        ),
+                        length
+                    )
+                ntry <- ntry + 1
             }
-            if (ntry >= 50)
-                warning('Cannot fulfill quorum, try set quorum = FALSE')
+            if (ntry >= 50) {
+                warning("Cannot fulfill quorum, try set quorum = FALSE")
+            }
         }
         # # check for duplicates (some sampling method generate duplicates)
         # if (any(duplicated(bblist)))
@@ -205,11 +236,12 @@ MARsampling <-
 # animate the sampling results
 .animate_MARsampling <- function(gm, bblist, pause = 0.2) {
     grDevices::dev.flush()
-    plot(gm$maps)
+    terra::plot(gm$maps)
     for (ii in seq_along(bblist)) {
-        plot(.rowcol_extent(gm$maps, bblist[[ii]]),
-             add = T,
-             col = 'black')
+        terra::plot(.rowcol_extent(gm$maps, bblist[[ii]]),
+            add = T,
+            col = "black"
+        )
         Sys.sleep(pause)
     }
 }

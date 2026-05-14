@@ -1,6 +1,6 @@
 # calculate MAR relationship
-.Mtype = c("M", "E", "thetaw", "thetapi")
-.Atype = c("A", "Asq")
+.Mtype <- c("M", "E", "thetaw", "thetapi")
+.Atype <- c("A", "Asq")
 
 #' Calculate the mutations-area relationship (MAR) using the power-law model
 #'
@@ -23,11 +23,11 @@
 #' mar <- MARcalc(data, Mtype = "M", Atype = "A")
 #' summary(mar)
 MARcalc <- function(mardf, Mtype = .Mtype, Atype = .Atype) {
-    Mtype = match.arg(Mtype)
-    Atype = match.arg(Atype)
+    Mtype <- match.arg(Mtype)
+    Atype <- match.arg(Atype)
     # remove NA or zero data
-    tmpdf = mardf[, c(Atype, Mtype)]
-    tmpdf = tmpdf[(tmpdf[,Mtype] > 0 & !is.na(tmpdf[,Mtype])), ]
+    tmpdf <- mardf[, c(Atype, Mtype)]
+    tmpdf <- tmpdf[(tmpdf[, Mtype] > 0 & !is.na(tmpdf[, Mtype])), ]
     # previously had a check for length(unique(tmpdf[,Mtype])) < 4
     if (nrow(tmpdf) == 0) {
         warning(paste0("MAR for Mtype = ", Mtype, ", Atype = ", Atype, " cannot be calculated"))
@@ -50,21 +50,23 @@ MARcalc <- function(mardf, Mtype = .Mtype, Atype = .Atype) {
         R2_adj = NA_real_
     )
 
-    outdf <- tryCatch({
-        marsum <- summary(mar)
-        outdf <- list(
-            model = marsum$Model,
-            c = marsum$Parameters[[1, "Estimate"]],
-            z = marsum$Parameters[[2, "Estimate"]],
-            c_p = marsum$Parameters[[1, "Pr(>|t|)"]],
-            z_p = marsum$Parameters[[2, "Pr(>|t|)"]],
-            R2_adj = marsum$R2a
-        )
-        return(outdf)
-    },
-    error = function(e) {
-        return(default_outdf)
-    })
+    outdf <- tryCatch(
+        {
+            marsum <- summary(mar)
+            outdf <- list(
+                model = marsum$Model,
+                c = marsum$Parameters[[1, "Estimate"]],
+                z = marsum$Parameters[[2, "Estimate"]],
+                c_p = marsum$Parameters[[1, "Pr(>|t|)"]],
+                z_p = marsum$Parameters[[2, "Pr(>|t|)"]],
+                R2_adj = marsum$R2a
+            )
+            return(outdf)
+        },
+        error = function(e) {
+            return(default_outdf)
+        }
+    )
 
     return(outdf)
 }

@@ -30,6 +30,6 @@ useful for extinction simulations.
 \examples{
 # Calculate genetic diversity for a specific set of cells
 gmarea <- mar:::.areaofraster(gm1001g$maps$samplemap)
-cell_ids <- c(613,726,727)
-div <- mutdiv.cells(gm1001g, gmarea, cellids=cell_ids)
+cell_ids <- c(613, 726, 727)
+div <- mutdiv.cells(gm1001g, gmarea, cellids = cell_ids)
 }

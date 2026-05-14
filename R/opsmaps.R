@@ -7,18 +7,23 @@
 
 # calculate area of a given raster
 .areaofraster <- function(rr, na.rm = FALSE, tol = 1, cached = TRUE) {
-    asub <- raster::area(rr, na.rm = na.rm)
+    if (inherits(rr, "Raster")) {
+        rr <- terra::rast(rr)
+    }
+
+    asub <- terra::cellSize(rr, unit = "km")
     # if cells' coefficient of variation too large (different area per cell)
-    cv_asub = raster::cv(raster::values(asub), na.rm = T)
+    vals <- terra::values(asub, na.rm = TRUE)
+    cv_asub <- sd(vals) / mean(vals) * 100
     # if cv > tol/100, warn the variation
     if (cv_asub > tol) {
-        warning(paste('Area of raster CV =', round(cv_asub, 1), '%'))
+        warning(paste("Area of raster CV =", round(cv_asub, 1), "%"))
     }
     if (cached) {
         # return the area raster
         return(asub)
     } else {
-        return(raster::cellStats(asub, 'sum'))
+        return(terra::global(asub, fun = "sum", na.rm = TRUE)[1, 1])
     }
     return(asub)
 }
@@ -46,10 +51,16 @@
     # get the cells
     # cellFromRowColCombine returns the cell numbers obtained by the combination of all row and
     # column numbers supplied as arguments
-    cells <- raster::cellFromRowColCombine(mm$samplemap, bbox[1]:bbox[2], bbox[3]:bbox[4])
+    # create all combinations of rows and columns
+    row_seq <- bbox[1]:bbox[2]
+    col_seq <- bbox[3]:bbox[4]
+    rc_grid <- expand.grid(row = row_seq, col = col_seq)
+
+    # get cell indices
+    cells <- terra::cellFromRowCol(mm$samplemap, rc_grid$row, rc_grid$col)
     # reverse the cells if revbbox
     if (revbbox) {
-        cells <- setdiff(1:raster::ncell(mm$samplemap), cells)
+        cells <- setdiff(1:terra::ncell(mm$samplemap), cells)
     }
     cellsnotna <- intersect(mm$cellid, cells)
     return(cellsnotna)
@@ -60,6 +71,6 @@
     # create an extent from mm$samplemap
     # When x is a Raster* object, you can pass four additional arguments to crop the
     # extent: r1, r2, c1, c2, representing the first and last row and column number
-    out = raster::extent(mm$samplemap, bbox[1], bbox[2], bbox[3], bbox[4])
+    out <- out <- terra::ext(bbox[1], bbox[2], bbox[3], bbox[4])
     return(out)
 }
