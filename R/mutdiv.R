@@ -99,77 +99,44 @@ mutdiv.cells <- function(gm, gmarea, cellids) {
 # ploidy does not matter here. although > diploid is not well-defined.
 # TODO: allow L calculations
 .calc_theta <- function(gm, sampleid = NULL) {
+    # get length of genome
+    L <- attr(gm, "genolen")
     ploidy <- .get_genodata(gm$geno, "ploidy")
-
+    # subset ids
     if (is.null(sampleid)) {
-        sampleid <- 1:(dim(gm$geno$genotype)[2])
+        sampleid = 1:(dim(gm$geno$genotype)[2])
     }
 
-    geno <- gm$geno$genotype[, sampleid, drop = FALSE]
+    # number of samples (need to scale by ploidy)
+    N <- length(sampleid) # dim(ingeno)[1]
+    xN <- N * ploidy
 
-    # allele counts
-    AC <- matrixStats::rowSums2(geno, na.rm = TRUE)
+    AC <- matrixStats::rowSums2(gm$geno$genotype, cols = sampleid, na.rm = TRUE)
+    oAC <- matrixStats::rowSums2(gm$geno$genotype, cols = -sampleid, na.rm = TRUE)
 
-    # called alleles per site
-    n_called_ind <- matrixStats::rowSums2(!is.na(geno))
-    called_alleles <- n_called_ind * ploidy
+    # number of called alleles (allows missing data now)
+    xN <- (N - matrixStats::rowCounts(gm$geno$genotype, cols = sampleid, value = NA_integer_)) * ploidy
 
-    valid <- called_alleles > 1
-
-    if (!any(valid)) {
-        return(list(
-            N = length(sampleid), M = 0, E = 0,
-            thetaw = 0, thetapi = 0
-        ))
-    }
-
-    # ---------------------------
-    # Theta Pi (pairwise correct)
-    # ---------------------------
-    num <- sum(
-        AC[valid] * (called_alleles[valid] - AC[valid]),
-        na.rm = TRUE
-    )
-
-    den <- sum(
-        choose(called_alleles[valid], 2),
-        na.rm = TRUE
-    )
-
-    thetapi <- if (den > 0) num / den else 0
-
-    # ---------------------------
-    # Theta Watterson
-    # ---------------------------
-    a_n <- rep(NA_real_, length(called_alleles))
-    a_n[valid] <- .Hn(called_alleles[valid] - 1)
-
-    seg_sites <- (AC > 0) & (AC < called_alleles) & valid
-
-    thetaw <- if (any(seg_sites)) {
-        sum(seg_sites) / mean(a_n[valid], na.rm = TRUE)
+    # segregating sites
+    M <- sum(AC > 0)
+    # compute diversity, Theta Waterson and Theta Pi (pairwise)
+    if (sum(xN) > 1 & M > 0) {
+        # total pairwise difference / total pairwise comparison
+        thetapi <- sum(2 * AC * (xN - AC)) / sum(xN * (xN - 1))
+        # Segregating sites / sum of all possible harmonic numbers of xN
+        thetaw <- M / sum(.Hn(xN-1))
     } else {
-        0
+        thetaw <- 0
+        thetapi <- 0
     }
+    # endemic segregating sites
+    E <- sum(AC > 0 & oAC == 0)
 
-    # ---------------------
-    # Counts
-    # ---------------------
-    M <- sum(seg_sites)
-
-    # outgroup handling
-    outgeno <- gm$geno$genotype[, -sampleid, drop = FALSE]
-
-    oAC <- matrixStats::rowSums2(outgeno, na.rm = TRUE)
-    o_called <- matrixStats::rowSums2(!is.na(outgeno)) * ploidy
-
-    E <- sum(seg_sites & oAC == 0 & o_called > 0)
-
-    return(list(
-        N = length(sampleid),
-        M = M,
-        E = E,
-        thetaw = thetaw,
-        thetapi = thetapi
-    ))
+    # return a list
+    out <- list(N = N,
+                M = M,
+                E = E,
+                thetaw = thetaw,
+                thetapi = thetapi)
+    return(out)
 }

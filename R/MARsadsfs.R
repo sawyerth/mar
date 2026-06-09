@@ -149,7 +149,11 @@ MARsad <- function(gm, sad_models = .sad_models, predict = TRUE, folded = TRUE) 
 #' allele_counts <- c(1,1,0,2,0,1,1,0,0,2,30)
 #' sfs_result <- sfs(allele_counts, N=50, ploidy=2)
 
-sfs <- function(AC, N, ploidy, folded = TRUE, nozero = TRUE) {
+sfs <- function(gm, folded = TRUE, nozero = TRUE) {
+    AC = .get_AC(gm$geno)
+    N = length(gm$maps$sample.id)
+    ploidy = gm$geno$ploidy
+
     xN = N*ploidy
     if (any(AC > xN)) {
         warning(paste0(sum(AC > xN), " SNPs had allele counts exceeding N*ploidy"))
@@ -175,8 +179,11 @@ sfs <- function(AC, N, ploidy, folded = TRUE, nozero = TRUE) {
 #' # Generate expected SFS
 #' exp_sfs <- expsfs(lenAC=1000, N=100, ploidy=2)
 
-expsfs <- function(lenAC, N, ploidy, folded = TRUE, nozero = TRUE) {
+expsfs <- function(gm, folded = TRUE, nozero = TRUE) {
+    N = length(gm$maps$sample.id)
+    ploidy = gm$geno$ploidy
     xN = N*ploidy
+    lenAC = nrow(gm$geno$genotype)
     theta = lenAC / .Hn(xN) # scale theta
     expsfs = c(0, theta/(1:xN)) # need to add 0 as xN is the same as zero when folded
     expsfs <- .new_sfs(expsfs, folded, nozero)

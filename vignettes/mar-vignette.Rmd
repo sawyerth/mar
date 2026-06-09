@@ -1,0 +1,248 @@
+---
+title: "MAR Analysis Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{MAR Analysis Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+    collapse = TRUE,
+    comment = "#>",
+    eval = FALSE
+)
+```
+
+# The standard `mar` workflow
+
+## Overview
+
+This vignette demonstrates the stepwise workflow for conducting a Mutation-Area
+Relationship (MAR) analysis using the `mar` package, illustrated with the included
+ *Arabidopsis thaliana* demo data.
+
+```{r setup}
+library(mar)
+```
+
+## Step 1: Import raw data
+
+Begin by locating and importing the bundled example data included with the
+`mar` package. `system.file()` resolves the path to files stored in
+`inst/extdata/`, ensuring the vignette works regardless of where the package
+is installed. `lonlat_parser()` reads the coordinate file (TXT, CSV, or TSV) and
+returns a data frame of sample IDs with their longitude and latitude, while
+`text_parser()` reads the genotype matrix and returns a `margeno` object
+containing the genotype data alongside sample and variant metadata.
+
+TODO: Add marApp instructions when needed. 
+
+```{r import}
+# Sample coordinates
+lonlatfile <- system.file("extdata", "1001g_lonlat.txt", package = "mar")
+
+# Raw genotype matrix
+# Tips: text_parser reads both gzipped and uncompressed text files.
+genofile <- system.file("extdata", "1001g_genotypes.txt.gz", package = "mar")
+# Optional: text_parser also reads sample names and chromosome positions if provided
+samplefile <- system.file("extdata", "1001g_accessions.txt", package = "mar")
+chrposfile <- system.file("extdata", "1001g_chrpos.txt", package = "mar")
+# Tips: for your own data, change the variables above to the corresponding filepaths
+
+# Read coordinates
+# Tips: lonlat_parser will assume the coordinates are longitude and latitude following ESPG: 4326 (WGS84)
+# and automatically determine the map resolution following equation 12 in (Hengl 2006)
+# Optional: for alternative resolution and map projection, see Appendix S1: customize projection and map resolution
+mapsdata <- mar::lonlat_parser(lonlatfile)
+mapsdata <- mar::marmaps(mapsdata, mapres = NULL, mapcrs = "EPSG:8857")
+print(mapsdata)
+# Optional: to inspect the reference map created
+plot(mapsdata)
+
+# Read genotype
+# Optional: for vcf parsing, see Appendix S2: reading vcf files
+genodata <- mar::text_parser(
+    geno.fn = genofile, 
+    samp.fn = samplefile, 
+    pos.fn = chrposfile, 
+    ploidy = 2
+)
+
+print(genodata)
+```
+
+## Step 2: Construct `genomaps` object
+
+`genomaps()` merges the `margeno` and `marmaps` objects into a single analysis
+object used by all downstream functions.
+
+```{r genomaps}
+gm1001g <- genomaps(genodata, mapsdata)
+print(gm1001g)
+```
+
+
+## Alternative Step 1-2: Load example data 
+
+The `mar` package also provides an example dataset already in the `genomaps` data format.
+If you do not need to load your own data, skip Steps1-2, and do the following:
+
+```{r example}
+data(gm1001g)
+print(gm1001g)
+
+# gm1001g is a list of two objects, to obtain marmaps and margeno objects
+genodata = gm1001g$geno
+mapsdata = gm1001g$maps
+
+# Tips: most operations in `mar` package takes `genomaps` as the input. 
+# Therefore, you do not have to extract the marmaps and margeno objects most if not all the time.
+```
+
+
+
+## Step 3: Explore the Site Frequency Spectrum (SFS)
+
+The observed SFS summarises how allele counts are distributed across sites;
+the expected SFS provides a neutral-theory baseline for comparison.
+
+```{r sfs}
+# Generate observed SFS from the genomaps object
+obs_sfs <- sfs(gm1001g)
+
+# Plot the observed SFS
+plot(obs_sfs)
+
+# Expected (neutral) SFS from the genomaps object
+exp_sfs <- expsfs(gm1001g)
+plot(exp_sfs)
+
+# Tips: you can also generate an unfolded SFS
+obs_sfs_unfolded <- sfs(gm1001g, folded = FALSE)
+plot(obs_sfs_unfolded)
+exp_sfs_unfolded <- expsfs(gm1001g, folded = FALSE)
+plot(exp_sfs_unfolded)
+```
+
+## Step 4: Estimate the mutations-area relationship
+
+The MAR is estimated in two steps.
+
+### 4a. Generate the diversity-by-area sampling table
+
+TODO: For alternative sampling schemes and other MARsampling options. See Appendix S3: Alternative MARsampling
+
+TODO: Description here on the output table. and the default options (e.g. nrep, xfrac). Use the marApp documentation when needed.
+
+TODO: I cannot get the plot method to register for marsamp (crying in my heart >_<), could you check this? 
+
+
+
+```{r mar-sampling}
+# uses of myseed not neccessary, used here for reproducibility
+mardf <- MARsampling(gm1001g, myseed = 91)
+mardf
+# mardf is a marsamp object
+class(mardf)
+# plot the diversity-by-area sampling results (?mar::plot.marsamp)
+plot.marsamp(mardf)
+plot(mardf) # doesn't work but should work
+```
+
+### 4b. Fit the mutations-area relationship model
+
+TODO: Description here
+
+```{r mar-fit}
+marfit <- MARcalc(mardf)
+# marfit is a sars object (from R package sars)
+class(marfit)
+# To extract full mar fit table, use summary
+summary(marfit)
+# Extract the c and z values from marfit
+c = unname(marfit$par['c'])
+z = unname(marfit$par['z'])
+# Plot the fit again
+plot.marsamp(mardf, c = c, z = z)
+```
+
+You can also fit other mutation relationships. For example, nucleotide diversity thetapi
+
+```{r}
+# plot alternative diversity-by-area sampling results
+plot(mardf, Mtype = 'thetapi', Atype = 'Asq')
+marfit_pi <- MARcalc(mardf, Mtype = 'thetapi', Atype = 'Asq')
+
+# marfit is a sars object (from R package sars)
+class(marfit_pi)
+# To extract full mar fit table, use summary
+summary(marfit_pi)
+# Extract the c and z values from marfit_pi
+c = unname(marfit_pi$par['c'])
+z = unname(marfit_pi$par['z'])
+# Plot the fit again
+plot.marsamp(mardf, c = c, z = z, Mtype = 'thetapi', Atype = 'Asq')
+```
+
+For pipelining 
+
+## Step 5: Estimate Extinction / Diversity Loss
+
+`MARextinction()` projects the expected loss of genetic diversity under
+hypothetical area reduction scenarios.
+
+TODO: For alternative sampling schemes and other MARextinction options. See Appendix S4: Alternative MARextinction
+
+
+```{r mar-extinction}
+marext <- MARextinction(gm1001g, myseed = 91)
+marext
+
+marextfit <- MARcalc(marext)
+summary(marextfit)
+
+# plot the extinction mar fit
+mar:::plot.marextinct(marext, z = 3.7916e-01)
+```
+
+## Step 7: Inspect and Export Outputs
+
+Use `str()`, `print()`, and `summary()` to inspect any result object.
+
+```{r inspect}
+# Object structures
+str(mar_sampling)
+str(mut_div)
+str(mar_fit)
+str(mar_ext)
+
+# Model summaries
+print(mar_fit)
+summary(mar_fit)
+```
+
+To save results or export to CSV:
+
+```{r export}
+saveRDS(mar_fit, file = "mar_fit.rds")
+write.csv(as.data.frame(mar_sampling), file = "mar_sampling.csv", row.names = FALSE)
+```
+
+
+# Appendix
+
+## Appendix S1: Customizing projection and map resolution
+
+
+## Appendix S2: Reading VCF files
+
+
+## Appendix S3: Alternative MARsampling
+
+## Appendix S4: Alternative MARextinction
+
+# Troubleshooting
+
+

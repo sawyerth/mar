@@ -5,16 +5,16 @@
 
 .ann_marsamp <- function(c, z, location) {
     equation <- bquote(M == .(round(c, 2)) * A^.(round(z, 2)))
-    legend(location, legend = as.expression(equation), bty = "n", text.col = .anncol)
+    legend(location, legend = as.expression(equation), text.col = .anncol)
 }
 
 .ann_marextinct <- function(z, location) {
     equation <- bquote((1 - m) == (1 - a)^.(round(z, 2)))
-    legend(location, legend = as.expression(equation), bty = "n", text.col = .anncol)
+    legend(location, legend = as.expression(equation), text.col = .anncol)
 }
 
 .ann_marsadsfs <- function(aa, ll, location) {
-    legend(location, legend = paste0("AIC = ", round(aa, 2), "\nLL = ", round(ll, 2)), bty = "n")
+    legend(location, legend = paste0("AIC = ", round(aa, 2), "\nLL = ", round(ll, 2)))
 }
 
 # define the plotting method for marmaps
@@ -98,14 +98,14 @@ plot.marsamp <- function(x, c = NULL, z = NULL, Mtype = .Mtype, Atype = .Atype, 
             # log(M) = log(c) + A*z
             if (!is.null(c) & !is.null(z)) {
                 abline(a = c, b = z, col = .anncol)
-                .ann_marsamp(c, z, location = "topright")
+                .ann_marsamp(c, z, location = "bottomright")
             }
         } else {
             graphics::plot(x = tmpdf[, Atype], y = tmpdf[, Mtype], xlab = Atype, ylab = Mtype, ...)
             # M = c*A^z
             if (!is.null(c) & !is.null(z)) {
                 curve(c * x^z, add = TRUE, col = .anncol)
-                .ann_marsamp(c, z, location = "topright")
+                .ann_marsamp(c, z, location = "bottomright")
             }
         }
     }
