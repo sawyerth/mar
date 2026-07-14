@@ -172,7 +172,7 @@ text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
 #' # Convert and open GDS file
 #' gds_conn <- vcf_parser("input.vcf.gz", opengds = TRUE)
 #' }
-vcf_parser <- function(vcf.fn) {
+vcf_parser <- function(vcf.fn, ploidy = 2) {
     con <- if (grepl("\\.gz$", vcf.fn)) gzfile(vcf.fn) else file(vcf.fn)
 
     lines <- readLines(con)
@@ -181,17 +181,59 @@ vcf_parser <- function(vcf.fn) {
     header_line <- grep("^#CHROM", lines, value = TRUE)
     data_lines <- lines[!grepl("^#", lines)]
 
-    df <- read.table(
-        text = paste(c(header_line, data_lines), collapse = "\n"),
-        header = TRUE,
-        sep = "\t",
-        stringsAsFactors = FALSE,
-        comment.char = "",
-        colClasses = c("X.CHROM" = "character")
+    col_names <- sub("^#", "", strsplit(header_line, "\t")[[1]])
+    fixed_cols <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT")
+    sample.id <- setdiff(col_names, fixed_cols)
+    stopifnot(length(sample.id) > 0)
+
+    split_lines <- strsplit(data_lines, "\t", fixed = TRUE)
+    n_var <- length(split_lines)
+    n_col <- length(col_names)
+
+    fields <- matrix(unlist(split_lines, use.names = FALSE),
+        nrow = n_var, ncol = n_col, byrow = TRUE,
+        dimnames = list(NULL, col_names)
     )
 
-    colnames(df)[1] <- "CHROM" # cleaner column names
-    return(df)
+    chromosome <- fields[, "CHROM"]
+    position <- as.integer(fields[, "POS"])
+
+    format_fields <- strsplit(fields[, "FORMAT"], ":")
+    gt_idx <- vapply(format_fields, function(f) match("GT", f), integer(1))
+
+    sample_col_idx <- match(sample.id, col_names)
+    genotype <- matrix(NA_real_, nrow = n_var, ncol = length(sample.id))
+
+    for (j in seq_along(sample.id)) {
+        cell_split <- strsplit(fields[, sample_col_idx[j]], ":", fixed = TRUE)
+        gt_strings <- mapply(function(cell, idx) cell[idx], cell_split, gt_idx)
+        genotype[, j] <- vapply(gt_strings, .gt_to_dosage, numeric(1))
+    }
+
+    .valid_genotype(genotype, ploidy)
+
+    margeno <- margeno(
+        sample.id = sample.id,
+        variant.id = seq_len(n_var),
+        position = position,
+        chromosome = chromosome,
+        genotype = genotype,
+        ploidy = ploidy
+    )
+
+    return(margeno)
+}
+
+# Converts a GT string ("0/1", "1|1", "./.", etc.) to ALT-allele dosage.
+.gt_to_dosage <- function(gt) {
+    if (is.na(gt) || gt %in% c(".", "./.", ".|.")) {
+        return(NA_real_)
+    }
+    alleles <- strsplit(gt, "[/|]")[[1]]
+    if (any(alleles == ".")) {
+        return(NA_real_)
+    }
+    sum(alleles != "0")
 }
 
 #' Parse longitude/latitude coordinates from text file
