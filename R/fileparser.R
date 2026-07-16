@@ -2,7 +2,7 @@
 .strip_ext <- function(filename, extensions) {
     bn <- basename(filename)
     matchext <- sapply(extensions, function(ext) grepl(paste0(ext, "$"), bn))
-    stopifnot(sum(matchext) == 1)
+    stopifnot("File extention does not match allowed extintions" = sum(matchext) == 1)
     bn <- sub(paste0(extensions[matchext], "$"), "", bn)
     return(bn)
 }
@@ -10,7 +10,7 @@
 .guess_delim <- function(firstline) {
     tab_count <- length(grep("\t", firstline, fixed = TRUE))
     comma_count <- length(grep(",", firstline, fixed = TRUE))
-    stopifnot(any(c(tab_count, comma_count) > 0))
+    stopifnot("First line must contain a tab or comma delimiter" = any(c(tab_count, comma_count) > 0))
     delim <- ifelse(tab_count >= comma_count, "\t", ",")
     return(delim)
 }
@@ -31,7 +31,7 @@
     close(con)
     # check header
     if (!is.null(myheader)) {
-        stopifnot(grepl(myheader, firstline, ignore.case = TRUE))
+        stopifnot("File header does not match the expected pattern" = grepl(myheader, firstline, ignore.case = TRUE)) # double check expected pattern
     }
     # guess delimiter
     delim <- .guess_delim(firstline)
@@ -82,7 +82,7 @@
 # no header or delimiter allowed for samp.fn (any single column file)
 .read_column <- function(fn) {
     df <- .read_table(fn, header = FALSE, sep = "")
-    stopifnot(ncol(df) == 1)
+    stopifnot("samp.fn must be a single-column file with no header or delimiter" = ncol(df) == 1)
     return(df[[1]])
 }
 
@@ -120,7 +120,7 @@
 text_parser <- function(geno.fn, samp.fn = NULL, pos.fn = NULL, ploidy = 2) {
     # check if geno.fn is a valid txt file
     txt.ext <- c(".txt", ".txt.gz", ".csv", ".csv.gz", ".tsv", ".tsv.gz")
-    stopifnot(any(sapply(txt.ext, function(xx) grepl(xx, geno.fn))))
+    stopifnot("Invalid file type. Must be txt, csv, or tsv" = any(sapply(txt.ext, function(xx) grepl(xx, geno.fn))))
     # read txt file
     genotype <- .read_genotype(geno.fn, ploidy)
     # read sample file if exists
@@ -184,7 +184,7 @@ vcf_parser <- function(vcf.fn, ploidy = 2) {
     col_names <- sub("^#", "", strsplit(header_line, "\t")[[1]])
     fixed_cols <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT")
     sample.id <- setdiff(col_names, fixed_cols)
-    stopifnot(length(sample.id) > 0)
+    stopifnot("VCF can not be empty" = length(sample.id) > 0)
 
     split_lines <- strsplit(data_lines, "\t", fixed = TRUE)
     n_var <- length(split_lines)
@@ -257,7 +257,7 @@ vcf_parser <- function(vcf.fn, ploidy = 2) {
 lonlat_parser <- function(lonlat.fn) {
     # check if lonlat.fn is a valid txt file
     txt.ext <- c(".txt", ".txt.gz", ".csv", ".csv.gz", ".tsv", ".tsv.gz")
-    stopifnot(any(sapply(txt.ext, function(xx) grepl(xx, lonlat.fn))))
+    stopifnot("Invalid file type. Must be txt, csv, or tsv" = any(sapply(txt.ext, function(xx) grepl(xx, lonlat.fn))))
     # read txt file
     lonlatdf <- .read_lonlat(lonlat.fn)
     marmap <- marmaps(lonlatdf, mapres = NULL, mapcrs = "EPSG:8857")
