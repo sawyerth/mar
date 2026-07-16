@@ -124,7 +124,7 @@ test_that("lonlat_parser works correctly", {
         LONGITUDE = c(-73.935242, -118.243683),
         LATITUDE = c(40.730610, 34.052235)
     )
-    expect_equal(result, lonlat)
+    expect_s3_class(result, "marmaps")
     unlink_files()
 })
 

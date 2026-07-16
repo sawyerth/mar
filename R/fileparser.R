@@ -260,5 +260,6 @@ lonlat_parser <- function(lonlat.fn) {
     stopifnot(any(sapply(txt.ext, function(xx) grepl(xx, lonlat.fn))))
     # read txt file
     lonlatdf <- .read_lonlat(lonlat.fn)
-    return(lonlatdf)
+    marmap <- marmaps(lonlatdf, mapres = NULL, mapcrs = "EPSG:8857")
+    return(marmap)
 }
