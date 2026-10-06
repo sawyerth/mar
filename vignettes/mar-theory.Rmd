@@ -433,8 +433,8 @@ sfs_gm1001g <- sfs(gm1001g, folded = FALSE)
 plot(sfs_gm1001g, log = 'x')
 ```
 
-This breaks the random mating assumption The two chromosomes inside an accession are not two
-independent draws, they are identical copies. When we sample one inbred individual but assume random mating, we are assuming we randomly sampled two independent chromomes, so the theory predicts too many mutations.
+This breaks the random mating assumption. The two chromosomes inside an accession are not two
+independent draws, they are identical copies. When we sample one inbred individual but assume random mating, we are assuming we randomly sampled two independent chromosomes, so the theory predicts too many mutations.
 
 The remedy is to describe the data as what it effectively is: a haploid sample of
 `r length(gm1001g$maps$sample.id)` gene copies rather than a diploid sample of

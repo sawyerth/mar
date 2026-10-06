@@ -49,7 +49,7 @@ test_that(".extsample works correctly", {
 })
 
 test_that("MARextinction basic functionality works", {
-    data("gm1001g", package = "mar")
+    data("gm1001g")
 
     # Test with default parameters
     result <- MARextinction(gm1001g, nrep = 2)
