@@ -618,38 +618,44 @@ $$
 
 ## $xN = 1$ and $L > 1$
 
-With $L$ sites we have $L$ independent Bernoulli trials, but the success probability
-differs from site to site because $k$ does. Treating $k$ as a random variable drawn from
-the spectrum, $K \sim \sigma(k)$, the marginal success probability is
+With $L$ sites we have $L$ independent Bernoulli trials, but the success probability ($p_j = k_j/xJ$,
+where $k_j$ is the allele count at site $j$) differs from site to site because $k_j$ does.
+Averaged over the spectrum, the success probability is
 
 $$
-\bar{p} \;=\; \sum_{k=0}^{xJ} \sigma(k)\,\frac{k}{xJ},
+\bar{p} \;=\; \frac{1}{L}\sum_{j=1}^{L} p_j \;=\; \sum_{k=0}^{xJ} \sigma(k)\,\frac{k}{xJ},
 $$
 
-and the total number of captured mutations is
+and the total number of captured mutations ($M$) follows a Poisson-binomial distribution.
+The expectation can be found by summing the per-site success probabilities $p_j$:
 
 $$
-M \sim \operatorname{Binom}(L, \bar{p}).
+E[M] = \sum_{j=1}^{L}p_j = L\bar{p}
 $$
 
 ## $xN > 1$ and $L > 1$
 
 When more than one chromosome is sampled, the per-site success probability is no longer
-$k/xJ$; it is one minus a hypergeometric miss probability. Sampling $xN$ chromosomes
+$p_j = k_j/xJ$; it is one minus a hypergeometric miss probability. Sampling $xN$ chromosomes
 without replacement from $xJ$, the mutation is missed only when all $xN$ come from the
-$xJ-k$ non-carriers:
+$xJ-k_j$ non-carriers:
 
 $$
-P(\text{captured}) \;=\; 1 - \frac{\binom{xJ-k}{xN}}{\binom{xJ}{xN}}.
+p_j \;=\; 1 - \frac{\binom{xJ-k_j}{xN}}{\binom{xJ}{xN}}.
 $$
 
-$M$ is still binomial, so its expectation is $L$ times the spectrum-averaged capture
+$M$ is still Poisson-binomial, so its expectation is $L$ times the spectrum-averaged capture
 probability:
 
 $$
 \boxed{\;E[M] \;=\; L \sum_{k=0}^{xJ} \sigma(k)
 \left(1-\frac{\binom{xJ-k}{xN}}{\binom{xJ}{xN}}\right)\;}
 $$
+
+As a small note, the expectation of $M$ is not contingent on the distribution of $M$.
+Linearity of expectation alone gives $E[M]$ as the sum of the per-site capture probabilities
+over the $L$ sites, so the above expectation is not strictly dependent on mutations
+in linkage equilibrium.
 
 ## The other two diversity measures
 
