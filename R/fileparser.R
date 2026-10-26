@@ -40,6 +40,31 @@
     return(df)
 }
 
+# recognized missing-data markers in text genotype files
+.missing_markers <- c("NA", "na", ".", "")
+
+# Coerces a (possibly character) matrix to numeric, raising an informative
+# error for any entry that is neither a valid number nor a recognized
+# missing-data marker, instead of silently reinterpreting it
+.coerce_genotype_matrix <- function(mat) {
+    numeric_mat <- suppressWarnings(matrix(as.numeric(mat), nrow = nrow(mat), ncol = ncol(mat)))
+    bad <- is.na(numeric_mat) & !is.na(mat) & !(trimws(mat) %in% .missing_markers)
+    if (any(bad)) {
+        bad_idx <- which(bad)
+        bad_rc <- arrayInd(bad_idx, dim(mat))
+        examples <- paste0(
+            "'", utils::head(mat[bad_idx], 6), "' (row ", utils::head(bad_rc[, 1], 6),
+            ", col ", utils::head(bad_rc[, 2], 6), ")"
+        )
+        stop(paste0(
+            "genotype file contains ", length(bad_idx),
+            " non-numeric entries that are not valid missing-data markers, e.g. ",
+            paste(examples, collapse = "; ")
+        ))
+    }
+    return(numeric_mat)
+}
+
 # only allow files without headers, just the genotype matrix. row is SNPs, column is samples, value is the amount of alternative alleles.
 # Not allowing het2hom as the script has been updated to match ploidy.
 # If want to use het2hom, manually convert the genotype matrix and set ploidy to one.
@@ -48,7 +73,7 @@
     delim <- .firstline(geno.fn)
     # not allow row or column names
     df <- .read_table(geno.fn, header = FALSE, sep = delim)
-    df <- data.matrix(df)
+    df <- .coerce_genotype_matrix(as.matrix(df))
     dimnames(df) <- NULL
     # check that the data only contains 0,1,...,ploidy
     # .valid_genotype(df, ploidy)
@@ -226,6 +251,9 @@ vcf_parser <- function(vcf.fn, ploidy = 2) {
     alleles <- strsplit(gt, "[/|]")[[1]]
     if (any(alleles == ".")) {
         return(NA_real_)
+    }
+    if (!all(grepl("^[0-9]+$", alleles))) {
+        stop(paste0("invalid GT field '", gt, "': alleles must be non-negative integers or '.'"))
     }
     sum(alleles != "0")
 }
