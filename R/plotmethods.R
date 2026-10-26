@@ -84,8 +84,10 @@ plot.sfs <- function(x, expected = NULL, ...) {
 #'   nothing; `TRUE` fits both `c` and `z` via \link{MARcalc}; a named
 #'   `c(c = , z = )` vector supplies one or both directly, and leaves the rest
 #'   to be fitted via \link{MARcalc}.
-#' @param Mtype Type of genetic diversity metric to plot
-#' @param Atype Type of area metric to plot
+#' @param Mtype Type of genetic diversity metric to plot. Default is "M"
+#'   (number of mutations), allowed values are `r toString(.Mtype)`.
+#' @param Atype Type of area metric to plot. Default is "A" (area), allowed
+#'   values are `r toString(.Atype)`.
 #' @param theory What theoretical MAR prediction to overlay: `NULL` (default,
 #'   no overlay), a `martheory` object (output of \link{MARtheory}, used
 #'   as-is), or a `genomaps` object (a `martheory` is generated from it via
@@ -151,8 +153,10 @@ plot.marsamp <- function(x, fit = FALSE, Mtype = .Mtype, Atype = .Atype, theory 
 #' @param fit Whether to draw the fitted extinction curve. `FALSE` (default)
 #'   draws nothing; `TRUE` fits `z` via \link{MARcalc}; a named `c(z = )`
 #'   vector supplies it directly.
-#' @param Mtype Type of genetic diversity metric to plot
-#' @param Atype Type of area metric to plot
+#' @param Mtype Type of genetic diversity metric to plot. Default is "M"
+#'   (number of mutations), allowed values are `r toString(.Mtype)`.
+#' @param Atype Type of area metric to plot. Default is "A" (area), allowed
+#'   values are `r toString(.Atype)`.
 #' @param theory What theoretical MAR prediction to overlay (rescaled to the
 #'   same % lost / % remained axes): `NULL` (default, no overlay), a
 #'   `martheory` object (output of \link{MARtheory}, used as-is), or a
@@ -213,7 +217,8 @@ plot.marextinct <- function(x, fit = FALSE, Mtype = .Mtype, Atype = .Atype, theo
 #'   nothing; `TRUE` fits both `c` and `z` via \link{MARcalc}; a named
 #'   `c(c = , z = )` vector supplies one or both directly, and leaves the rest
 #'   to be fitted via \link{MARcalc}.
-#' @param Mtype Type of genetic diversity metric to plot. Allowed values are `r toString(.Mtype_theory)`.
+#' @param Mtype Type of genetic diversity metric to plot. Default is "M"
+#'   (number of mutations), allowed values are `r toString(.Mtype_theory)`.
 #' @param ... Additional arguments passed to \link[graphics]{plot}. Pass
 #'   `log = "xy"` (or `"x"` / `"y"`) for a log-log (or semi-log) plot; the
 #'   fitted curve follows the axes.
