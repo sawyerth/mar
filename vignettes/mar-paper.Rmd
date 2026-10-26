@@ -78,8 +78,7 @@ dimnames(summarydf)[[2]][4:5] <- c('Pr(>|t|)', 'R2_adj')
 print(summarydf)
 ```
 
-```{r Fig2, eval = FALSE}
-pdf(file = 'Fig2.pdf', width = 10, height = 8)
+```{r Fig2, fig.width = 10, fig.height = 8, fig.cap = "Sample map (A), observed site-frequency spectrum (B), MAR sampling curve (C), and extinction curve (D) for the global Arabidopsis 1001G dataset."}
 par(mfrow = c(2,2), mar = c(4,4,3,2))
 plot(gm1001g$maps, xlab = "Easting (EPSG:8857)", ylab = "Northing", pax = list(cex.lab = 1))
 mtext("A", side = 3, line = 1, adj = 0, cex = 1.4, font = 2)
@@ -89,40 +88,29 @@ plot(mardf, fit = marfit$par)
 mtext("C", side = 3, line = 1, adj = 0, cex = 1.4, font = 2)
 plot(extdf, fit = marfit$par)
 mtext("D", side = 3, line = 1, adj = 0, cex = 1.4, font = 2)
-dev.off()
 ```
 
-
-```{r FigS1, eval = FALSE}
-pdf(file = 'FigS1.pdf', width = 6, height = 5)
+```{r FigS1, fig.width = 6, fig.height = 5, fig.cap = "MAR sampling curve fit using area in number of samples (Atype = 'N'), with the theoretical expectation overlaid."}
 plot(mardf, fit = TRUE, Atype = 'N', theory = theorydf)
-dev.off()
 ```
 
-
-
-```{r FigS2, eval = FALSE}
-pdf(file = 'FigS2.pdf', width = 6, height = 5)
+```{r FigS2, fig.width = 6, fig.height = 5, fig.cap = "MAR sampling curve fit using squared area (Atype = 'Asq')."}
 plot(mardf, fit = TRUE, Atype = 'Asq')
-dev.off()
 ```
 
-```{r FigS3, eval = FALSE}
+```{r FigS3, fig.width = 5, fig.height = 12, fig.cap = "MAR sampling curves fit to the number of segregating sites (E), Watterson's theta (thetaw), and nucleotide diversity (thetapi)."}
 Mtypes = c('E', 'thetaw', 'thetapi')
-pdf(file = 'FigS3.pdf', width = 5, height = 12)
+panel_labels <- c('A', 'B', 'C')
 par(mfrow = c(1,3))
-for (Mtype in Mtypes) {
-    mtext("A", side = 3, line = 1, adj = 0, cex = 1.4, font = 2)
-    plot(mardf, fit = TRUE, Mtype = Mtype)
+for (i in seq_along(Mtypes)) {
+    plot(mardf, fit = TRUE, Mtype = Mtypes[i])
+    mtext(panel_labels[i], side = 3, line = 1, adj = 0, cex = 1.4, font = 2)
 }
-dev.off()
 ```
 
-```{r FigS4, eval = FALSE}
-pdf(file = 'FigS4.pdf', width = 6, height = 5)
+```{r FigS4, fig.width = 6, fig.height = 5, fig.cap = "Extinction curve with the power-law relationship predicted from the MAR fit (red line) overlaid."}
 plot(extdf, fit = TRUE)
 curve((1 - x)^marfit$par['z'], add = TRUE, col = 'red')
-dev.off()
 ```
 
 
